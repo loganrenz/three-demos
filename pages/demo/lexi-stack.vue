@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import * as THREE from 'three'
+import { isAdjacentPosition, scoreWord } from '~/utils/lexistack-logic'
 import { isValidWord } from '~/utils/lexistack-dictionary'
 
 interface TileData {
@@ -135,11 +136,6 @@ const START_INTERVAL = 7
 const MIN_INTERVAL = 3
 const INTERVAL_DECREASE = 0.05
 const TIMER_REWARD = 1.1
-
-const LETTER_SCORES: Record<string, number> = {
-  A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3, N: 1, O: 1, P: 3,
-  Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10
-}
 
 const LETTER_POOL: Array<{ letter: string; weight: number }> = [
   { letter: 'E', weight: 12 },
@@ -358,12 +354,6 @@ const findTileByMesh = (mesh: THREE.Object3D): TileData | null => {
   return null
 }
 
-const isAdjacent = (a: TileData, b: TileData) => {
-  const rowDiff = Math.abs(a.row - b.row)
-  const colDiff = Math.abs(a.col - b.col)
-  return rowDiff <= 1 && colDiff <= 1 && !(rowDiff === 0 && colDiff === 0)
-}
-
 const toggleTileSelection = (tile: TileData) => {
   if (tile.removing) return
   const index = selectedTiles.value.findIndex((t) => t.row === tile.row && t.col === tile.col)
@@ -375,7 +365,7 @@ const toggleTileSelection = (tile: TileData) => {
   }
 
   const last = selectedTiles.value[selectedTiles.value.length - 1]
-  if (last && !isAdjacent(last, tile)) {
+  if (last && !isAdjacentPosition(last, tile)) {
     statusMessage.value = 'Tiles must be adjacent.'
     flashTiles([tile])
     return
@@ -421,8 +411,8 @@ const submitWord = () => {
     return
   }
 
-  const wordScore = selectedTiles.value.reduce((sum, tile) => sum + LETTER_SCORES[tile.letter], 0)
-  const total = Math.round(wordScore * (1 + selectedTiles.value.length * 0.1) * comboMultiplier.value)
+  const letters = selectedTiles.value.map((tile) => tile.letter)
+  const total = scoreWord(letters, comboMultiplier.value)
   score.value += total
   comboMultiplier.value = Math.min(5, comboMultiplier.value + 0.1)
   bestCombo.value = Math.max(bestCombo.value, comboMultiplier.value)
