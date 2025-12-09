@@ -14,7 +14,33 @@
     </div>
 
     <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
-      <div ref="container" class="h-full w-full"></div>
+      <div
+        v-if="!webglSupported || renderError"
+        class="absolute inset-0 flex items-center justify-center"
+      >
+        <div class="bg-black/70 border border-white/10 rounded-xl p-6 text-center space-y-3 max-w-lg">
+          <p class="text-lg font-semibold">Renderer paused</p>
+          <p class="text-sm text-slate-300">
+            {{
+              renderError
+                ? 'The 3D renderer encountered an error and released GPU resources. Re-open this tab to restart.'
+                : 'WebGL is unavailable in this browser. Enable hardware acceleration or switch devices to play.'
+            }}
+          </p>
+          <UButton
+            as="a"
+            href="https://get.webgl.org/"
+            target="_blank"
+            rel="noreferrer"
+            icon="i-heroicons-arrow-top-right-on-square"
+            color="emerald"
+          >
+            WebGL help
+          </UButton>
+        </div>
+      </div>
+
+      <div v-else ref="container" class="h-full w-full"></div>
 
       <button
         @click="showInfo = !showInfo"
@@ -70,6 +96,30 @@
           <UButton color="emerald" icon="i-heroicons-arrow-path" @click="resetGame">Play again</UButton>
         </div>
       </div>
+
+      <div
+        v-if="featureFlags.debugPanel"
+        class="absolute bottom-3 left-3 z-20 rounded-xl border border-white/10 bg-black/65 backdrop-blur p-3 text-xs space-y-2 max-w-xs"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-slate-300">FPS</span>
+          <span class="font-mono">{{ diagnostics.fps }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-300">Memory</span>
+          <span class="font-mono">{{ formattedMemory }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-300">Dictionary</span>
+          <span class="font-semibold text-emerald-200">{{ activeDictionary }}</span>
+        </div>
+        <div v-if="diagnostics.validationFailures.length" class="text-amber-200">
+          <p class="font-semibold">Validation failures</p>
+          <ul class="list-disc list-inside space-y-1">
+            <li v-for="failure in diagnostics.validationFailures.slice(-3)" :key="failure">{{ failure }}</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <details class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
@@ -98,7 +148,11 @@ definePageMeta({
 import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
 import * as THREE from 'three'
 import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
-import { isValidWord } from '@/utils/lexistack-dictionary'
+import { isValidWord, type DictionarySource } from '@/utils/lexistack-dictionary'
+import { useFeatureFlags } from '@/composables/useFeatureFlags'
+import { useRuntimeDiagnostics } from '@/composables/useRuntimeDiagnostics'
+import { isWebGLAvailable } from '@/utils/webglSupport'
+import { trackAnalytics } from '@/utils/analytics'
 
 interface TileData {
   letter: string
@@ -158,6 +212,9 @@ const raycaster = markRaw(new THREE.Raycaster())
 const pointer = markRaw(new THREE.Vector2())
 const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
+let handleVisibility: (() => void) | null = null
+let handleContextLoss: ((event: Event) => void) | null = null
+let handleContextRestore: (() => void) | null = null
 
 const showInfo = ref(false)
 const grid = ref<Array<Array<TileData | null>>>([])
@@ -176,6 +233,17 @@ const boardOriginY = -boardHeight / 2
 
 const timerPercent = computed(() => Math.max(0, Math.min(100, (timeUntilNextRow.value / rowInterval.value) * 100)))
 const currentWord = computed(() => selectedTiles.value.map((tile) => tile.letter).join(''))
+const featureFlags = useFeatureFlags()
+const diagnostics = useRuntimeDiagnostics(computed(() => featureFlags.value.debugPanel))
+const activeDictionary = computed<DictionarySource>(() => featureFlags.value.dictionarySource)
+const webglSupported = ref(true)
+const renderError = ref('')
+
+const formattedMemory = computed(() => {
+  if (!diagnostics.memory.value) return '—'
+  const mb = diagnostics.memory.value / 1024 / 1024
+  return `${mb.toFixed(1)} MB`
+})
 
 const tileMeshes = () => {
   return grid.value.flatMap((row) => row.filter((tile): tile is TileData => !!tile).map((tile) => tile.mesh))
@@ -239,7 +307,7 @@ const getRandomLetter = () => {
 }
 
 const initScene = () => {
-  if (!container.value) return
+  if (!container.value || !webglSupported.value) return
   scene = markRaw(new THREE.Scene())
   scene.background = new THREE.Color('#0b1021')
 
@@ -251,10 +319,31 @@ const initScene = () => {
   camera.position.set(0, boardHeight / 3, 15)
   camera.lookAt(0, boardHeight / 3, 0)
 
-  renderer = markRaw(new THREE.WebGLRenderer({ antialias: true }))
+  renderer = markRaw(
+    new THREE.WebGLRenderer({ antialias: featureFlags.value.renderQuality !== 'low' })
+  )
   renderer.setSize(width, height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.shadowMap.enabled = false
+  if (featureFlags.value.renderQuality === 'high') {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  } else if (featureFlags.value.renderQuality === 'medium') {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+  } else {
+    renderer.setPixelRatio(1)
+  }
+  renderer.shadowMap.enabled = featureFlags.value.renderQuality !== 'low'
+
+  handleContextLoss = (event: Event) => {
+    event.preventDefault()
+    renderError.value = 'Rendering context lost'
+    disposeScene()
+  }
+  handleContextRestore = () => {
+    renderError.value = ''
+    startGame(true)
+  }
+
+  renderer.domElement.addEventListener('webglcontextlost', handleContextLoss)
+  renderer.domElement.addEventListener('webglcontextrestored', handleContextRestore)
   container.value.appendChild(renderer.domElement)
 
   const ambient = new THREE.AmbientLight('#ffffff', 0.6)
@@ -389,9 +478,10 @@ const submitWord = () => {
     return
   }
 
-  if (!isValidWord(word)) {
-    statusMessage.value = `${word} is not in the dictionary.`
+  if (!isValidWord(word, activeDictionary.value)) {
+    statusMessage.value = `${word} is not in the ${activeDictionary.value} dictionary.`
     comboMultiplier.value = 1
+    diagnostics.logValidationFailure(`${word} rejected (${activeDictionary.value})`)
     flashTiles(selectedTiles.value)
     clearSelection()
     return
@@ -403,6 +493,11 @@ const submitWord = () => {
   comboMultiplier.value = Math.min(5, comboMultiplier.value + 0.1)
   bestCombo.value = Math.max(bestCombo.value, comboMultiplier.value)
   statusMessage.value = `Cleared ${word}! +${total} points`
+
+  trackAnalytics(featureFlags.value.analytics, {
+    name: 'lexistack:word-submitted',
+    payload: { word, total, dictionary: activeDictionary.value }
+  })
 
   for (const tile of selectedTiles.value) {
     tile.removing = true
@@ -501,6 +596,7 @@ const update = () => {
 
   renderer.render(scene, camera)
   animationId = requestAnimationFrame(update)
+  diagnostics.recordFrame()
 }
 
 const resetGame = () => {
@@ -546,31 +642,22 @@ const handleResize = () => {
   renderer.setSize(width, height)
 }
 
-onMounted(async () => {
-  await nextTick()
-  if (!container.value) return
-  
-  initScene()
-  spawnInitialRows()
-
-  if (renderer) {
-    renderer.domElement.addEventListener('pointerdown', handlePointerDown)
-  }
-  window.addEventListener('resize', handleResize)
-  window.addEventListener('keydown', handleKeydown)
-
-  clock.start()
-  update()
-})
-
-onUnmounted(() => {
+const disposeScene = () => {
   if (animationId) {
     cancelAnimationFrame(animationId)
     animationId = null
   }
+
   if (renderer) {
     renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+    if (handleContextLoss) {
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLoss)
+    }
+    if (handleContextRestore) {
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestore)
+    }
   }
+
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
 
@@ -590,10 +677,56 @@ onUnmounted(() => {
       container.value.removeChild(renderer.domElement)
     }
     renderer.dispose()
+    renderer.forceContextLoss()
     renderer = null
   }
-  
+
   scene = null
   camera = null
+}
+
+const startGame = (resetBoard = true) => {
+  if (!container.value || !webglSupported.value) return
+  renderError.value = ''
+  initScene()
+  if (resetBoard) {
+    resetGame()
+  } else {
+    spawnInitialRows()
+  }
+
+  if (renderer) {
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+  }
+  window.addEventListener('resize', handleResize)
+  window.addEventListener('keydown', handleKeydown)
+
+  clock.start()
+  update()
+}
+
+onMounted(async () => {
+  await nextTick()
+  webglSupported.value = isWebGLAvailable()
+  if (!container.value || !webglSupported.value) return
+
+  startGame()
+
+  handleVisibility = () => {
+    if (document.hidden) {
+      disposeScene()
+    } else if (!animationId && !renderError.value) {
+      startGame()
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibility)
+})
+
+onUnmounted(() => {
+  disposeScene()
+  if (handleVisibility) {
+    document.removeEventListener('visibilitychange', handleVisibility)
+    handleVisibility = null
+  }
 })
 </script>
