@@ -1,19 +1,19 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-4 text-white">
-    <div class="flex items-center justify-between gap-3">
-      <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="space-y-1">
         <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Word tower</p>
-        <h2 class="text-2xl font-semibold">LexiStack</h2>
-        <p class="text-sm text-slate-400">A single-column experience built to stay within the viewport on phones.</p>
+        <h2 class="text-2xl font-semibold leading-tight">LexiStack</h2>
+        <p class="text-sm text-slate-400">A single-column experience tuned so the action stays visible on phones.</p>
       </div>
-      <div class="text-right text-sm">
+      <div class="text-left text-sm sm:text-right sm:min-w-[160px]">
         <p class="text-xs uppercase tracking-[0.2em] text-emerald-300">Score</p>
-        <p class="text-3xl font-bold">{{ score }}</p>
+        <p class="text-3xl font-bold leading-none">{{ score }}</p>
         <p class="text-[12px] text-slate-400">Best streak x{{ bestCombo.toFixed(1) }}</p>
       </div>
     </div>
 
-    <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
+    <div class="relative h-[70vh] min-h-[420px] sm:h-[75vh] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl touch-none select-none">
       <div ref="container" class="h-full w-full"></div>
 
       <button
@@ -37,50 +37,48 @@
         <div class="text-xs text-gray-200 hidden sm:block">Keep the tower below the rim.</div>
       </div>
 
-      <div
-        class="absolute inset-x-3 bottom-3 z-10 grid gap-2 rounded-xl border border-white/10 bg-black/55 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between"
-      >
-        <div class="flex items-center gap-2 text-sm text-emerald-200">
-          <span class="text-xs uppercase tracking-[0.15em] text-slate-300">Word</span>
-          <div class="flex flex-wrap gap-1 min-h-[32px]">
-            <span
-              v-for="(tile, index) in selectedTiles"
-              :key="`${tile.row}-${tile.col}-${index}`"
-              class="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold"
-            >
-              {{ tile.letter }}
-            </span>
-            <span v-if="!selectedTiles.length" class="text-xs text-slate-400">Tap connected letters</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord" class="min-h-[44px]">
-            Submit
-          </UButton>
-          <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection" class="min-h-[44px]">
-            Clear
-          </UButton>
-          <UButton
-            variant="ghost"
-            size="sm"
-            :color="sfxEnabled ? 'emerald' : 'gray'"
-            :icon="sfxEnabled ? 'i-heroicons-speaker-wave' : 'i-heroicons-speaker-x-mark'"
-            class="min-h-[44px]"
-            :aria-pressed="sfxEnabled"
-            aria-label="Toggle sound effects"
-            @click="toggleSound"
-          >
-            {{ sfxEnabled ? 'Mute' : 'Unmute' }}
-          </UButton>
-        </div>
-      </div>
-
       <div v-if="isGameOver" class="absolute inset-0 bg-black/70 backdrop-blur flex items-center justify-center">
         <div class="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-sm text-center space-y-4 shadow-xl">
           <h3 class="text-xl font-semibold text-white">Game Over</h3>
           <p class="text-gray-300">Final score: <span class="font-semibold">{{ score }}</span></p>
           <UButton color="emerald" icon="i-heroicons-arrow-path" @click="resetGame">Play again</UButton>
         </div>
+      </div>
+    </div>
+
+    <div class="mt-3 grid gap-3 rounded-xl border border-white/10 bg-black/60 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div class="flex items-center gap-2 text-sm text-emerald-200">
+        <span class="text-xs uppercase tracking-[0.15em] text-slate-300">Word</span>
+        <div class="flex flex-wrap gap-1 min-h-[32px] max-w-full">
+          <span
+            v-for="(tile, index) in selectedTiles"
+            :key="`${tile.row}-${tile.col}-${index}`"
+            class="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold"
+          >
+            {{ tile.letter }}
+          </span>
+          <span v-if="!selectedTiles.length" class="text-xs text-slate-400">Tap connected letters</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord" class="min-h-[44px] w-full sm:w-auto">
+          Submit
+        </UButton>
+        <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection" class="min-h-[44px] w-full sm:w-auto">
+          Clear
+        </UButton>
+        <UButton
+          variant="ghost"
+          size="sm"
+          :color="sfxEnabled ? 'emerald' : 'gray'"
+          :icon="sfxEnabled ? 'i-heroicons-speaker-wave' : 'i-heroicons-speaker-x-mark'"
+          class="min-h-[44px] w-full sm:w-auto"
+          :aria-pressed="sfxEnabled"
+          aria-label="Toggle sound effects"
+          @click="toggleSound"
+        >
+          {{ sfxEnabled ? 'Mute' : 'Unmute' }}
+        </UButton>
       </div>
     </div>
 
@@ -474,6 +472,9 @@ const initScene = () => {
   renderer.setSize(width, height)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = false
+  renderer.domElement.style.touchAction = 'none'
+  renderer.domElement.style.width = '100%'
+  renderer.domElement.style.height = '100%'
   container.value.appendChild(renderer.domElement)
 
   const ambient = new THREE.AmbientLight('#ffffff', 0.6)
@@ -536,6 +537,7 @@ const addNewRow = () => {
 
 const handlePointerDown = (event: PointerEvent) => {
   if (!renderer || !camera || !scene || isGameOver.value) return
+  event.preventDefault()
   recordInteraction()
   const rect = renderer.domElement.getBoundingClientRect()
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
