@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-6xl space-y-4 text-white">
+  <div class="mx-auto max-w-6xl space-y-4 text-white pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
     <div class="flex items-center justify-between gap-3">
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Word tower</p>
@@ -13,7 +13,10 @@
       </div>
     </div>
 
-    <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
+    <div
+      class="relative h-[min(78vh,760px)] min-h-[420px] sm:min-h-[520px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl"
+      style="max-height: calc(100vh - 140px)"
+    >
       <div ref="container" class="h-full w-full"></div>
 
       <button
@@ -24,42 +27,93 @@
         <span class="text-lg">{{ showInfo ? '×' : 'ℹ' }}</span>
       </button>
 
-      <div v-show="showInfo" class="absolute top-3 left-3 z-10 bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
-        <div class="text-[11px] uppercase tracking-[0.15em] text-gray-300">Next row</div>
-        <div class="w-40 sm:w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
-          <div class="h-full bg-emerald-400 transition-all duration-200" :style="{ width: `${timerPercent}%` }"></div>
+      <div
+        v-show="showInfo"
+        class="absolute top-3 left-3 right-3 z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+      >
+        <div class="bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
+          <div class="text-[11px] uppercase tracking-[0.15em] text-gray-300">Next row</div>
+          <div class="w-full sm:w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
+            <div class="h-full bg-emerald-400 transition-all duration-200" :style="{ width: `${timerPercent}%` }"></div>
+          </div>
+          <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
         </div>
-        <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
+
+        <div class="bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur text-right sm:px-4 sm:py-3">
+          <div class="text-[11px] uppercase tracking-[0.15em] text-amber-300">Danger line</div>
+          <div class="text-xs text-gray-200">Keep the tower below the rim.</div>
+        </div>
       </div>
 
-      <div v-show="showInfo" class="absolute top-3 right-3 z-10 bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur text-right sm:px-4 sm:py-3">
-        <div class="text-[11px] uppercase tracking-[0.15em] text-amber-300">Danger line</div>
-        <div class="text-xs text-gray-200 hidden sm:block">Keep the tower below the rim.</div>
+      <div class="absolute left-6 right-6 top-[22%] z-10 pointer-events-none">
+        <div class="h-1 rounded-full bg-gradient-to-r from-amber-400/70 via-rose-500/70 to-amber-400/70 shadow-lg shadow-amber-500/30"></div>
+        <p class="mt-1 text-[11px] uppercase tracking-[0.2em] text-amber-200/90 text-right">Danger line</p>
       </div>
 
       <div
-        class="absolute inset-x-3 bottom-3 z-10 grid gap-2 rounded-xl border border-white/10 bg-black/55 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between"
-      >
-        <div class="flex items-center gap-2 text-sm text-emerald-200">
-          <span class="text-xs uppercase tracking-[0.15em] text-slate-300">Word</span>
-          <div class="flex flex-wrap gap-1 min-h-[32px]">
-            <span
-              v-for="(tile, index) in selectedTiles"
-              :key="`${tile.row}-${tile.col}-${index}`"
-              class="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold"
-            >
-              {{ tile.letter }}
-            </span>
-            <span v-if="!selectedTiles.length" class="text-xs text-slate-400">Tap connected letters</span>
-          </div>
+        class="absolute inset-x-3 bottom-3 z-10 rounded-xl border border-white/10 bg-black/65 p-3 backdrop-blur"
+        style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px)"
+        >
+        <div class="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.15em] text-slate-300">
+          <span>Word</span>
+          <label class="flex items-center gap-2 text-[12px] text-slate-200">
+            <input
+              v-model="isLeftHanded"
+              type="checkbox"
+              class="h-4 w-4 rounded border border-white/20 bg-slate-900/80 text-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+              aria-label="Toggle left handed controls"
+            />
+            <span class="leading-none">Left-handed mode</span>
+          </label>
         </div>
-        <div class="flex items-center gap-2">
-          <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord" class="min-h-[44px]">
-            Submit
-          </UButton>
-          <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection" class="min-h-[44px]">
-            Clear
-          </UButton>
+        <div
+          class="mt-3 flex flex-col gap-3 sm:mt-4 sm:flex-row sm:items-center sm:gap-4"
+          :class="isLeftHanded ? 'sm:flex-row-reverse' : ''"
+        >
+          <div
+            class="flex flex-1 flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-emerald-200 focus-within:ring-2 focus-within:ring-emerald-400/60"
+            role="status"
+            aria-live="polite"
+            aria-label="Selected word"
+          >
+            <div class="flex flex-wrap gap-2 min-h-[44px] items-center">
+              <span
+                v-for="(tile, index) in selectedTiles"
+                :key="`${tile.row}-${tile.col}-${index}`"
+                class="px-3 py-2 min-w-[44px] rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold text-lg"
+              >
+                {{ tile.letter }}
+              </span>
+              <span v-if="!selectedTiles.length" class="text-xs text-slate-400">Tap or drag connected letters</span>
+            </div>
+          </div>
+          <div
+            class="flex w-full flex-row flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end"
+            :class="isLeftHanded ? 'sm:flex-row-reverse sm:justify-start' : ''"
+          >
+            <UButton
+              color="emerald"
+              size="sm"
+              icon="i-heroicons-check"
+              :disabled="!selectedTiles.length || isGameOver"
+              @click="submitWord"
+              class="min-h-[48px] min-w-[48px] flex-1 sm:flex-none px-4 text-base"
+              aria-label="Submit selected word"
+            >
+              Submit
+            </UButton>
+            <UButton
+              variant="ghost"
+              size="sm"
+              icon="i-heroicons-x-mark"
+              :disabled="!selectedTiles.length"
+              @click="clearSelection"
+              class="min-h-[48px] min-w-[48px] flex-1 sm:flex-none px-4 text-base"
+              aria-label="Clear selection"
+            >
+              Clear
+            </UButton>
+          </div>
         </div>
       </div>
 
@@ -169,6 +223,9 @@ const rowInterval = ref(START_INTERVAL)
 const timeUntilNextRow = ref(rowInterval.value)
 const isGameOver = ref(false)
 const statusMessage = ref('')
+const isLeftHanded = ref(false)
+const activePointerId = ref<number | null>(null)
+const isDragging = ref(false)
 
 const boardWidth = GRID_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP
 const boardHeight = GRID_ROWS_VISIBLE * (TILE_SIZE + TILE_GAP) - TILE_GAP
@@ -176,6 +233,12 @@ const boardOriginY = -boardHeight / 2
 
 const timerPercent = computed(() => Math.max(0, Math.min(100, (timeUntilNextRow.value / rowInterval.value) * 100)))
 const currentWord = computed(() => selectedTiles.value.map((tile) => tile.letter).join(''))
+
+const triggerHaptics = (pattern: number | number[]) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(pattern)
+  }
+}
 
 const tileMeshes = () => {
   return grid.value.flatMap((row) => row.filter((tile): tile is TileData => !!tile).map((tile) => tile.mesh))
@@ -256,6 +319,7 @@ const initScene = () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = false
   container.value.appendChild(renderer.domElement)
+  renderer.domElement.style.touchAction = 'none'
 
   const ambient = new THREE.AmbientLight('#ffffff', 0.6)
   scene.add(ambient)
@@ -314,8 +378,8 @@ const addNewRow = () => {
   timeUntilNextRow.value = rowInterval.value
 }
 
-const handlePointerDown = (event: PointerEvent) => {
-  if (!renderer || !camera || !scene || isGameOver.value) return
+const tileFromPointer = (event: PointerEvent) => {
+  if (!renderer || !camera || !scene) return null
   const rect = renderer.domElement.getBoundingClientRect()
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -324,11 +388,35 @@ const handlePointerDown = (event: PointerEvent) => {
   const intersects = raycaster.intersectObjects(tileMeshes())
   if (intersects.length) {
     const mesh = intersects[0].object as THREE.Mesh
-    const tile = findTileByMesh(mesh)
-    if (tile) {
-      toggleTileSelection(tile)
-    }
+    return findTileByMesh(mesh)
   }
+  return null
+}
+
+const handlePointerDown = (event: PointerEvent) => {
+  if (!renderer || !camera || !scene || isGameOver.value) return
+  activePointerId.value = event.pointerId
+  isDragging.value = true
+  renderer.domElement.setPointerCapture(event.pointerId)
+  const tile = tileFromPointer(event)
+  if (tile) {
+    selectTile(tile, true)
+  }
+}
+
+const handlePointerMove = (event: PointerEvent) => {
+  if (!isDragging.value || activePointerId.value !== event.pointerId) return
+  const tile = tileFromPointer(event)
+  if (tile) {
+    selectTile(tile)
+  }
+}
+
+const handlePointerUp = (event: PointerEvent) => {
+  if (activePointerId.value !== event.pointerId || !renderer) return
+  isDragging.value = false
+  activePointerId.value = null
+  renderer.domElement.releasePointerCapture(event.pointerId)
 }
 
 const findTileByMesh = (mesh: THREE.Object3D): TileData | null => {
@@ -340,15 +428,17 @@ const findTileByMesh = (mesh: THREE.Object3D): TileData | null => {
   return null
 }
 
-const toggleTileSelection = (tile: TileData) => {
+const selectTile = (tile: TileData, allowDeselect = false) => {
   if (tile.removing) return
   const index = selectedTiles.value.findIndex((t) => t.row === tile.row && t.col === tile.col)
-  if (index !== -1) {
+  if (allowDeselect && index !== -1) {
     selectedTiles.value.splice(index, 1)
     resetMaterials(tile)
     tile.mesh.scale.setScalar(1)
     return
   }
+
+  if (index !== -1) return
 
   const last = selectedTiles.value[selectedTiles.value.length - 1]
   if (last && !isAdjacentPosition(last, tile)) {
@@ -371,12 +461,13 @@ const flashTiles = (tiles: TileData[]) => {
   }
 }
 
-const clearSelection = () => {
+const clearSelection = (withHaptics = true) => {
   selectedTiles.value.forEach((tile) => {
     resetMaterials(tile)
     tile.mesh.scale.setScalar(1)
   })
   selectedTiles.value = []
+  if (withHaptics) triggerHaptics(20)
 }
 
 const submitWord = () => {
@@ -385,7 +476,8 @@ const submitWord = () => {
   if (word.length < 2) {
     statusMessage.value = 'Select at least two letters.'
     flashTiles(selectedTiles.value)
-    clearSelection()
+    clearSelection(false)
+    triggerHaptics(15)
     return
   }
 
@@ -393,7 +485,8 @@ const submitWord = () => {
     statusMessage.value = `${word} is not in the dictionary.`
     comboMultiplier.value = 1
     flashTiles(selectedTiles.value)
-    clearSelection()
+    clearSelection(false)
+    triggerHaptics([10, 40, 10])
     return
   }
 
@@ -409,9 +502,10 @@ const submitWord = () => {
     tile.removeTimer = 0.35
   }
 
-  clearSelection()
+  clearSelection(false)
   applyGravityAfterDelay()
   timeUntilNextRow.value = Math.min(rowInterval.value, timeUntilNextRow.value + TIMER_REWARD)
+  triggerHaptics(30)
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -555,6 +649,9 @@ onMounted(async () => {
 
   if (renderer) {
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+    renderer.domElement.addEventListener('pointermove', handlePointerMove)
+    renderer.domElement.addEventListener('pointerup', handlePointerUp)
+    renderer.domElement.addEventListener('pointercancel', handlePointerUp)
   }
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
@@ -570,6 +667,9 @@ onUnmounted(() => {
   }
   if (renderer) {
     renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+    renderer.domElement.removeEventListener('pointermove', handlePointerMove)
+    renderer.domElement.removeEventListener('pointerup', handlePointerUp)
+    renderer.domElement.removeEventListener('pointercancel', handlePointerUp)
   }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
