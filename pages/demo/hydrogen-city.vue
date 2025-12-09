@@ -76,16 +76,16 @@
             Camera Presets
           </label>
           <div class="grid grid-cols-2 gap-2">
-            <UButton 
-              v-for="(preset, index) in cameraPresets" 
-              :key="index"
-              v-if="preset && preset.name"
-              @click="jumpToCameraPreset(index)" 
-              variant="ghost" 
-              size="xs"
-            >
-              {{ preset.name }}
-            </UButton>
+            <template v-for="(preset, index) in cameraPresets" :key="index">
+              <UButton 
+                v-if="preset && preset.name"
+                @click="jumpToCameraPreset(index)" 
+                variant="ghost" 
+                size="xs"
+              >
+                {{ preset.name }}
+              </UButton>
+            </template>
           </div>
         </div>
         
@@ -351,28 +351,35 @@ onMounted(() => {
     const time = animationTime
     lastFrameTime = currentTime
 
-    // Update camera
-    cameraController.update(time)
+    try {
+      // Update camera
+      if (cameraController) {
+        cameraController.update(time)
+      }
 
-    // Update veins
-    for (let i = 0; i < veins.length; i++) {
-      const vein = veins[i]
-      if (!vein || !vein.tube || !vein.material) continue
-      
-      updateVeinFlow(vein, time, pulseSpeed.value)
-      vein.tube.visible = showVeins.value || visualizationMode.value === 'underground'
-      
-      // Update shader material time uniform
-      if (vein.material instanceof THREE.ShaderMaterial) {
-        vein.material.uniforms.time.value = time * pulseSpeed.value
+      // Update veins
+      for (let i = 0; i < veins.length; i++) {
+        const vein = veins[i]
+        if (!vein || !vein.tube || !vein.material || !vein.curve) continue
+        
+        try {
+          updateVeinFlow(vein, time, pulseSpeed.value)
+          vein.tube.visible = showVeins.value || visualizationMode.value === 'underground'
+          
+          // Update shader material time uniform
+          if (vein.material instanceof THREE.ShaderMaterial) {
+            vein.material.uniforms.time.value = time * pulseSpeed.value
+          }
+          
+          // Update vein particles
+          if (veinParticles[i] && vein.curve) {
+            updateVeinParticles(veinParticles[i], vein, time, pulseSpeed.value)
+            veinParticles[i].points.visible = showVeins.value || visualizationMode.value === 'underground'
+          }
+        } catch (e) {
+          // Skip this vein if there's an error
+        }
       }
-      
-      // Update vein particles
-      if (veinParticles[i]) {
-        updateVeinParticles(veinParticles[i], vein, time, pulseSpeed.value)
-        veinParticles[i].points.visible = showVeins.value || visualizationMode.value === 'underground'
-      }
-    }
     
     // Update building sparks
     for (const sparks of buildingSparks) {
@@ -386,57 +393,70 @@ onMounted(() => {
       sparks.geometry.attributes.color.needsUpdate = true
     }
 
-    // Check building energy from veins
-    let totalEnergyValue = 0
-    let activeCount = 0
-    for (const building of buildings) {
-      const wasEnergized = building.isEnergized
-      building.isEnergized = checkBuildingEnergized(building, veins, time, pulseSpeed.value)
+      // Check building energy from veins
+      let totalEnergyValue = 0
+      let activeCount = 0
+      for (const building of buildings) {
+        if (!building || !building.position) continue
+        
+        try {
+          const wasEnergized = building.isEnergized
+          building.isEnergized = checkBuildingEnergized(building, veins, time, pulseSpeed.value)
 
-      if (building.isEnergized && !wasEnergized) {
-        building.lastEnergizedTime = time
-        // Create energy ripple
-        if (scene && building.position && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
-          createEnergyRipple(building.position.x, building.position.z, time)
-        }
-        // Create building sparks
-        if (building.position && scene && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
-          const sparks = createBuildingSparks(building.position, 15)
-          scene.add(sparks)
-          buildingSparks.push(sparks)
-          // Remove sparks after animation
-          setTimeout(() => {
-            if (scene) {
-              scene.remove(sparks)
-              sparks.geometry.dispose()
-              ;(sparks.material as THREE.Material).dispose()
-              const index = buildingSparks.indexOf(sparks)
-              if (index > -1) buildingSparks.splice(index, 1)
+          if (building.isEnergized && !wasEnergized) {
+            building.lastEnergizedTime = time
+            // Create energy ripple
+            if (scene && building.position && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
+              createEnergyRipple(building.position.x, building.position.z, time)
             }
-          }, 2000)
+            // Create building sparks
+            if (building.position && scene && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
+              const sparks = createBuildingSparks(building.position, 15)
+              scene.add(sparks)
+              buildingSparks.push(sparks)
+              // Remove sparks after animation
+              setTimeout(() => {
+                if (scene) {
+                  scene.remove(sparks)
+                  sparks.geometry.dispose()
+                  ;(sparks.material as THREE.Material).dispose()
+                  const index = buildingSparks.indexOf(sparks)
+                  if (index > -1) buildingSparks.splice(index, 1)
+                }
+              }, 2000)
+            }
+          }
+
+          updateBuildingEnergy(building, time, 2, buildings)
+          totalEnergyValue += building.energyLevel
+          if (building.energyLevel > 0.1) activeCount++
+        } catch (e) {
+          // Skip this building if there's an error
+        }
+      }
+      // Update energy ripples
+      updateEnergyRipples(time)
+
+      // Update energy bleed-through on ground
+      updateEnergyBleedThrough(time)
+
+      // Apply glow intensity
+      for (const building of buildings) {
+        if (building && building.energyLevel > 0 && building.glowMesh && building.mesh) {
+          try {
+            const baseIntensity = building.energyLevel * glowIntensity.value
+            ;(building.glowMesh.material as THREE.MeshStandardMaterial).emissiveIntensity = baseIntensity * 2
+            ;(building.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = baseIntensity * 0.5
+          } catch (e) {
+            // Skip if error
+          }
         }
       }
 
-      updateBuildingEnergy(building, time, 2, buildings)
-      totalEnergyValue += building.energyLevel
-      if (building.energyLevel > 0.1) activeCount++
-    }
-    totalEnergy.value = totalEnergyValue
-    activeBuildings.value = activeCount
-
-    // Update energy ripples
-    updateEnergyRipples(time)
-
-    // Update energy bleed-through on ground
-    updateEnergyBleedThrough(time)
-
-    // Apply glow intensity
-    for (const building of buildings) {
-      if (building.energyLevel > 0) {
-        const baseIntensity = building.energyLevel * glowIntensity.value
-        ;(building.glowMesh.material as THREE.MeshStandardMaterial).emissiveIntensity = baseIntensity * 2
-        ;(building.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = baseIntensity * 0.5
-      }
+      totalEnergy.value = totalEnergyValue
+      activeBuildings.value = activeCount
+    } catch (e) {
+      // Prevent animation loop from crashing
     }
 
     // Render
@@ -525,11 +545,16 @@ onMounted(() => {
 })
 
 watch(showVeins, (value) => {
+  if (!veins || veins.length === 0) return
   for (const vein of veins) {
-    vein.tube.visible = value || visualizationMode.value === 'underground'
+    if (vein && vein.tube) {
+      vein.tube.visible = value || visualizationMode.value === 'underground'
+    }
   }
   for (const particleSystem of veinParticles) {
-    particleSystem.points.visible = value || visualizationMode.value === 'underground'
+    if (particleSystem && particleSystem.points) {
+      particleSystem.points.visible = value || visualizationMode.value === 'underground'
+    }
   }
 })
 
