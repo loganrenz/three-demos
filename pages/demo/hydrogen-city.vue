@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as THREE from 'three'
 
 definePageMeta({ layout: 'demo' })
@@ -130,7 +130,8 @@ let animationId: number | null = null
 let clock: THREE.Clock | null = null
 let handleResize: (() => void) | null = null
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
   if (!container.value) return
 
   // Scene setup
@@ -541,52 +542,96 @@ function onViewModeChange() {
 }
 
 onUnmounted(() => {
-  if (handleResize) {
-    window.removeEventListener('resize', handleResize)
-  }
   if (animationId) {
     cancelAnimationFrame(animationId)
+    animationId = null
+  }
+  if (handleResize) {
+    window.removeEventListener('resize', handleResize)
+    handleResize = null
   }
   if (renderer && container.value && renderer.domElement.parentNode) {
     container.value.removeChild(renderer.domElement)
     renderer.dispose()
+    renderer = null
   }
   if (composer) {
     composer.dispose()
+    composer = null
   }
+  if (cameraController) {
+    cameraController = null
+  }
+  if (clock) {
+    clock = null
+  }
+  
   // Clean up geometries and materials
-  for (const building of buildings) {
-    building.mesh.geometry.dispose()
-    ;(building.mesh.material as THREE.Material).dispose()
-    building.glowMesh.geometry.dispose()
-    ;(building.glowMesh.material as THREE.Material).dispose()
+  if (scene) {
+    for (const building of buildings) {
+      if (building.mesh) {
+        scene.remove(building.mesh)
+        building.mesh.geometry.dispose()
+        ;(building.mesh.material as THREE.Material).dispose()
+      }
+      if (building.glowMesh) {
+        scene.remove(building.glowMesh)
+        building.glowMesh.geometry.dispose()
+        ;(building.glowMesh.material as THREE.Material).dispose()
+      }
+      if (building.windowLights) {
+        scene.remove(building.windowLights)
+        building.windowLights.geometry.dispose()
+        ;(building.windowLights.material as THREE.Material).dispose()
+      }
+    }
+    buildings = []
+    
+    for (const vein of veins) {
+      if (vein.tube) {
+        scene.remove(vein.tube)
+        vein.tube.geometry.dispose()
+        vein.material.dispose()
+      }
+    }
+    veins = []
+    
+    for (const particleSystem of veinParticles) {
+      if (particleSystem.points) {
+        scene.remove(particleSystem.points)
+        particleSystem.points.geometry.dispose()
+        ;(particleSystem.points.material as THREE.Material).dispose()
+      }
+    }
+    veinParticles = []
+    
+    for (const sparks of buildingSparks) {
+      scene.remove(sparks)
+      sparks.geometry.dispose()
+      ;(sparks.material as THREE.Material).dispose()
+    }
+    buildingSparks = []
+    
+    if (groundPlane) {
+      scene.remove(groundPlane)
+      groundPlane.geometry.dispose()
+      ;(groundPlane.material as THREE.Material).dispose()
+      groundPlane = null
+    }
+    if (groundGrid) {
+      scene.remove(groundGrid)
+      groundGrid = null
+    }
+    for (const ripple of energyRipples) {
+      scene.remove(ripple)
+      ripple.geometry.dispose()
+      ;(ripple.material as THREE.Material).dispose()
+    }
+    energyRipples = []
   }
-  for (const vein of veins) {
-    vein.tube.geometry.dispose()
-    vein.material.dispose()
-  }
-  for (const particleSystem of veinParticles) {
-    particleSystem.points.geometry.dispose()
-    ;(particleSystem.points.material as THREE.Material).dispose()
-    scene.remove(particleSystem.points)
-  }
-  for (const sparks of buildingSparks) {
-    sparks.geometry.dispose()
-    ;(sparks.material as THREE.Material).dispose()
-    if (scene) scene.remove(sparks)
-  }
-  if (groundPlane) {
-    groundPlane.geometry.dispose()
-    ;(groundPlane.material as THREE.Material).dispose()
-  }
-  if (groundGrid && scene) {
-    scene.remove(groundGrid)
-  }
-  for (const ripple of energyRipples) {
-    ripple.geometry.dispose()
-    ;(ripple.material as THREE.Material).dispose()
-    if (scene) scene.remove(ripple)
-  }
+  
+  scene = null
+  camera = null
 })
 </script>
 

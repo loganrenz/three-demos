@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as THREE from 'three'
 
 definePageMeta({ layout: 'demo' })
@@ -221,7 +221,8 @@ function updateLighting(time: number) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
   if (!container.value) return
 
   // Scene setup
@@ -399,67 +400,117 @@ watch(timeOfDay, (value) => {
 })
 
 onUnmounted(() => {
-  if (handleResize) {
-    window.removeEventListener('resize', handleResize)
-  }
   if (animationId) {
     cancelAnimationFrame(animationId)
+    animationId = null
+  }
+  if (handleResize) {
+    window.removeEventListener('resize', handleResize)
+    handleResize = null
   }
   if (renderer && container.value && renderer.domElement.parentNode) {
     container.value.removeChild(renderer.domElement)
     renderer.dispose()
+    renderer = null
   }
   if (composer) {
     composer.dispose()
+    composer = null
+  }
+  if (controls) {
+    controls.dispose()
+    controls = null
+  }
+  if (clock) {
+    clock = null
   }
   
-  // Cleanup
-  for (const tree of trees) {
-    tree.trunk.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose()
-        if (obj.material instanceof THREE.Material) {
-          obj.material.dispose()
-        }
+  // Cleanup trees
+  if (scene) {
+    for (const tree of trees) {
+      if (tree.trunk) {
+        tree.trunk.traverse((obj) => {
+          if (obj instanceof THREE.Mesh) {
+            obj.geometry.dispose()
+            if (obj.material instanceof THREE.Material) {
+              obj.material.dispose()
+            }
+          }
+        })
+        scene.remove(tree.trunk)
       }
-    })
-    tree.leaves.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose()
-        if (obj.material instanceof THREE.Material) {
-          obj.material.dispose()
-        }
+      if (tree.leaves) {
+        tree.leaves.traverse((obj) => {
+          if (obj instanceof THREE.Mesh) {
+            obj.geometry.dispose()
+            if (obj.material instanceof THREE.Material) {
+              obj.material.dispose()
+            }
+          }
+        })
+        scene.remove(tree.leaves)
       }
-    })
+    }
+    trees = []
   }
   
   if (rainParticles) {
+    if (scene) scene.remove(rainParticles)
     rainParticles.geometry.dispose()
     if (rainParticles.material instanceof THREE.Material) {
       rainParticles.material.dispose()
     }
+    rainParticles = null
   }
   
   if (fogMesh) {
+    if (scene) scene.remove(fogMesh)
     fogMesh.geometry.dispose()
     if (fogMesh.material instanceof THREE.Material) {
       fogMesh.material.dispose()
     }
+    fogMesh = null
   }
   
   if (leafSystem) {
+    if (scene) scene.remove(leafSystem.particles)
     leafSystem.particles.geometry.dispose()
     if (leafSystem.particles.material instanceof THREE.Material) {
       leafSystem.particles.material.dispose()
     }
+    leafSystem = null
   }
   
   if (terrain) {
+    if (scene) scene.remove(terrain)
     terrain.geometry.dispose()
     if (terrain.material instanceof THREE.Material) {
       terrain.material.dispose()
     }
+    terrain = null
   }
+  
+  if (skyMesh) {
+    if (scene) scene.remove(skyMesh)
+    skyMesh.geometry.dispose()
+    if (skyMesh.material instanceof THREE.Material) {
+      skyMesh.material.dispose()
+    }
+    skyMesh = null
+  }
+  
+  if (directionalLight && scene) {
+    scene.remove(directionalLight)
+    directionalLight = null
+  }
+  
+  if (ambientLight && scene) {
+    scene.remove(ambientLight)
+    ambientLight = null
+  }
+  
+  scene = null
+  camera = null
 })
 </script>
 

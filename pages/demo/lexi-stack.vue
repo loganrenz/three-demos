@@ -82,12 +82,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
-import * as THREE from 'three'
+definePageMeta({
+  ssr: false,
+  layout: 'demo'
+})
 
-definePageMeta({ layout: 'demo' })
-import { isAdjacentPosition, scoreWord } from '~/utils/lexistack-logic'
-import { isValidWord } from '~/utils/lexistack-dictionary'
+import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
+import * as THREE from 'three'
+import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
+import { isValidWord } from '@/utils/lexistack-dictionary'
 
 interface TileData {
   letter: string
@@ -140,12 +143,12 @@ const LETTER_POOL: Array<{ letter: string; weight: number }> = [
 ]
 
 const container = ref<HTMLDivElement | null>(null)
-const scene = ref<THREE.Scene | null>(null)
-const camera = ref<THREE.OrthographicCamera | null>(null)
-const renderer = ref<THREE.WebGLRenderer | null>(null)
-const raycaster = new THREE.Raycaster()
-const pointer = new THREE.Vector2()
-const clock = new THREE.Clock()
+let scene: THREE.Scene | null = null
+let camera: THREE.OrthographicCamera | null = null
+let renderer: THREE.WebGLRenderer | null = null
+const raycaster = markRaw(new THREE.Raycaster())
+const pointer = markRaw(new THREE.Vector2())
+const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
 
 const grid = ref<Array<Array<TileData | null>>>([])
@@ -228,45 +231,46 @@ const getRandomLetter = () => {
 
 const initScene = () => {
   if (!container.value) return
-  scene.value = new THREE.Scene()
-  scene.value.background = new THREE.Color('#0b1021')
+  scene = markRaw(new THREE.Scene())
+  scene.background = new THREE.Color('#0b1021')
 
   const width = container.value.clientWidth
   const height = container.value.clientHeight
   const halfW = boardWidth / 1.3
   const halfH = boardHeight / 1.3
-  camera.value = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100)
-  camera.value.position.set(0, boardHeight / 3, 15)
-  camera.value.lookAt(0, boardHeight / 3, 0)
+  camera = markRaw(new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100))
+  camera.position.set(0, boardHeight / 3, 15)
+  camera.lookAt(0, boardHeight / 3, 0)
 
-  renderer.value = new THREE.WebGLRenderer({ antialias: true })
-  renderer.value.setSize(width, height)
-  renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.value.shadowMap.enabled = false
-  container.value.appendChild(renderer.value.domElement)
+  renderer = markRaw(new THREE.WebGLRenderer({ antialias: true }))
+  renderer.setSize(width, height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.shadowMap.enabled = false
+  container.value.appendChild(renderer.domElement)
 
   const ambient = new THREE.AmbientLight('#ffffff', 0.6)
-  scene.value.add(ambient)
+  scene.add(ambient)
 
   const dir = new THREE.DirectionalLight('#87d1ff', 0.8)
   dir.position.set(4, 8, 6)
-  scene.value.add(dir)
+  scene.add(dir)
 
   const planeGeo = new THREE.PlaneGeometry(boardWidth * 1.2, boardHeight * 1.4)
   const planeMat = new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: 0.75 })
   const base = new THREE.Mesh(planeGeo, planeMat)
   base.position.set(0, boardOriginY + boardHeight / 2, -1)
-  scene.value.add(base)
+  scene.add(base)
 }
 
 const spawnInitialRows = () => {
+  if (!scene) return
   grid.value = Array.from({ length: GRID_ROWS_VISIBLE }, () => Array.from({ length: GRID_COLS }, () => null))
   for (let r = 0; r < INITIAL_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       const letter = getRandomLetter()
       const tile = createTile(letter, r, c)
       grid.value[r][c] = tile
-      scene.value?.add(tile.mesh)
+      scene.add(tile.mesh)
     }
   }
 }
@@ -294,7 +298,7 @@ const addNewRow = () => {
     const letter = getRandomLetter()
     const tile = createTile(letter, 0, col, boardOriginY - TILE_SIZE * 2)
     grid.value[0][col] = tile
-    scene.value?.add(tile.mesh)
+    if (scene) scene.add(tile.mesh)
   }
 
   rowInterval.value = Math.max(MIN_INTERVAL, rowInterval.value - INTERVAL_DECREASE)
@@ -302,11 +306,11 @@ const addNewRow = () => {
 }
 
 const handlePointerDown = (event: PointerEvent) => {
-  if (!renderer.value || !camera.value || !scene.value || isGameOver.value) return
-  const rect = renderer.value.domElement.getBoundingClientRect()
+  if (!renderer || !camera || !scene || isGameOver.value) return
+  const rect = renderer.domElement.getBoundingClientRect()
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-  raycaster.setFromCamera(pointer, camera.value)
+  raycaster.setFromCamera(pointer, camera)
 
   const intersects = raycaster.intersectObjects(tileMeshes())
   if (intersects.length) {
@@ -435,7 +439,7 @@ const applyGravityAfterDelay = () => {
 
 const update = () => {
   const delta = clock.getDelta()
-  if (!scene.value || !camera.value || !renderer.value) return
+  if (!scene || !camera || !renderer) return
 
   if (!isGameOver.value) {
     timeUntilNextRow.value -= delta
@@ -456,7 +460,7 @@ const update = () => {
         const material = tile.mesh.material as THREE.MeshStandardMaterial
         material.opacity = t
         if (tile.removeTimer <= 0) {
-          scene.value?.remove(tile.mesh)
+          scene?.remove(tile.mesh)
           const indexRow = tile.row
           const indexCol = tile.col
           if (grid.value[indexRow][indexCol] === tile) {
@@ -486,7 +490,7 @@ const update = () => {
     }
   }
 
-  renderer.value.render(scene.value, camera.value)
+  renderer.render(scene, camera)
   animationId = requestAnimationFrame(update)
 }
 
@@ -500,10 +504,10 @@ const resetGame = () => {
   timeUntilNextRow.value = rowInterval.value
   isGameOver.value = false
 
-  if (scene.value) {
+  if (scene) {
     const removals = tileMeshes()
     for (const mesh of removals) {
-      scene.value.remove(mesh)
+      scene.remove(mesh)
       if (mesh.geometry) mesh.geometry.dispose()
       if (mesh.material && mesh.material instanceof THREE.Material) {
         mesh.material.dispose()
@@ -520,18 +524,28 @@ const triggerGameOver = () => {
 }
 
 const handleResize = () => {
-  if (!container.value || !camera.value || !renderer.value) return
+  if (!container.value || !camera || !renderer) return
   const width = container.value.clientWidth
   const height = container.value.clientHeight
-  renderer.value.setSize(width, height)
+  const halfW = boardWidth / 1.3
+  const halfH = boardHeight / 1.3
+  camera.left = -halfW
+  camera.right = halfW
+  camera.top = halfH
+  camera.bottom = -halfH
+  camera.updateProjectionMatrix()
+  renderer.setSize(width, height)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
+  if (!container.value) return
+  
   initScene()
   spawnInitialRows()
 
-  if (renderer.value) {
-    renderer.value.domElement.addEventListener('pointerdown', handlePointerDown)
+  if (renderer) {
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown)
   }
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
@@ -541,22 +555,36 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (renderer.value) {
-    renderer.value.domElement.removeEventListener('pointerdown', handlePointerDown)
+  if (animationId) {
+    cancelAnimationFrame(animationId)
+    animationId = null
+  }
+  if (renderer) {
+    renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
   }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
-  if (animationId) cancelAnimationFrame(animationId)
 
-  const meshes = tileMeshes()
-  for (const mesh of meshes) {
-    scene.value?.remove(mesh)
-    mesh.geometry.dispose()
-    if (mesh.material && mesh.material instanceof THREE.Material) {
-      mesh.material.dispose()
+  if (scene) {
+    const meshes = tileMeshes()
+    for (const mesh of meshes) {
+      scene.remove(mesh)
+      mesh.geometry.dispose()
+      if (mesh.material && mesh.material instanceof THREE.Material) {
+        mesh.material.dispose()
+      }
     }
   }
 
-  renderer.value?.dispose()
+  if (renderer) {
+    if (container.value && renderer.domElement.parentNode) {
+      container.value.removeChild(renderer.domElement)
+    }
+    renderer.dispose()
+    renderer = null
+  }
+  
+  scene = null
+  camera = null
 })
 </script>

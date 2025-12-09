@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as THREE from 'three'
 
 definePageMeta({ layout: 'demo' })
@@ -31,8 +31,10 @@ let camera: THREE.PerspectiveCamera | null = null
 let renderer: THREE.WebGLRenderer | null = null
 let cube: THREE.Mesh | null = null
 let animationId: number | null = null
+let handleResize: (() => void) | null = null
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
   if (!container.value) return
 
   // Scene
@@ -68,7 +70,7 @@ onMounted(() => {
   scene.add(directionalLight)
 
   // Handle resize
-  const handleResize = () => {
+  handleResize = () => {
     if (!container.value || !camera || !renderer) return
     camera.aspect = container.value.clientWidth / container.value.clientHeight
     camera.updateProjectionMatrix()
@@ -88,26 +90,31 @@ onMounted(() => {
     }
   }
   animate()
-
-  onUnmounted(() => {
-    window.removeEventListener('resize', handleResize)
-  })
 })
 
 onUnmounted(() => {
   if (animationId) {
     cancelAnimationFrame(animationId)
+    animationId = null
   }
-  if (renderer && container.value) {
+  if (handleResize) {
+    window.removeEventListener('resize', handleResize)
+    handleResize = null
+  }
+  if (renderer && container.value && renderer.domElement.parentNode) {
     container.value.removeChild(renderer.domElement)
     renderer.dispose()
+    renderer = null
   }
   if (cube) {
     cube.geometry.dispose()
     if (cube.material instanceof THREE.Material) {
       cube.material.dispose()
     }
+    cube = null
   }
+  scene = null
+  camera = null
 })
 </script>
 
