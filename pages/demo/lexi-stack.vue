@@ -1,118 +1,91 @@
 <template>
-  <div class="space-y-4">
-    <div class="mb-2">
-      <UButton to="/" variant="ghost" icon="i-heroicons-arrow-left">Back</UButton>
+  <div class="mx-auto max-w-6xl space-y-4 text-white">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Word tower</p>
+        <h2 class="text-2xl font-semibold">LexiStack</h2>
+        <p class="text-sm text-slate-400">A single-column experience built to stay within the viewport on phones.</p>
+      </div>
+      <div class="text-right text-sm">
+        <p class="text-xs uppercase tracking-[0.2em] text-emerald-300">Score</p>
+        <p class="text-3xl font-bold">{{ score }}</p>
+        <p class="text-[12px] text-slate-400">Best streak x{{ bestCombo.toFixed(1) }}</p>
+      </div>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
-      <div class="lg:col-span-2 space-y-4">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">LexiStack</h2>
-            <p class="text-gray-600 dark:text-gray-300">Build words, clear tiles, and keep the stack from reaching the danger line.</p>
-          </div>
-          <div class="text-right">
-            <div class="text-sm uppercase tracking-wide text-emerald-400">Score</div>
-            <div class="text-4xl font-bold text-gray-900 dark:text-white">{{ score }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">Best streak: x{{ bestCombo.toFixed(1) }}</div>
+    <div class="relative h-[75vh] min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
+      <div ref="container" class="h-full w-full"></div>
+
+      <div class="absolute top-3 left-3 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur">
+        <div class="text-[11px] uppercase tracking-[0.15em] text-gray-300">Next row</div>
+        <div class="w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
+          <div class="h-full bg-emerald-400 transition-all duration-200" :style="{ width: `${timerPercent}%` }"></div>
+        </div>
+        <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
+      </div>
+
+      <div class="absolute top-3 right-3 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur text-right">
+        <div class="text-[11px] uppercase tracking-[0.15em] text-amber-300">Danger line</div>
+        <div class="text-xs text-gray-200">Keep the tower below the rim.</div>
+      </div>
+
+      <div
+        class="absolute inset-x-3 bottom-3 grid gap-2 rounded-xl border border-white/10 bg-black/55 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between"
+      >
+        <div class="flex items-center gap-2 text-sm text-emerald-200">
+          <span class="text-xs uppercase tracking-[0.15em] text-slate-300">Word</span>
+          <div class="flex flex-wrap gap-1 min-h-[32px]">
+            <span
+              v-for="(tile, index) in selectedTiles"
+              :key="`${tile.row}-${tile.col}-${index}`"
+              class="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold"
+            >
+              {{ tile.letter }}
+            </span>
+            <span v-if="!selectedTiles.length" class="text-xs text-slate-400">Tap connected letters</span>
           </div>
         </div>
-
-        <div class="relative rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-gradient-to-b from-slate-950 to-slate-900">
-          <div ref="container" class="w-full h-[640px]"></div>
-
-          <div class="absolute top-4 left-4 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur">
-            <div class="text-xs uppercase tracking-wide text-gray-300">Next row</div>
-            <div class="w-56 h-3 bg-white/10 rounded-full overflow-hidden mt-2">
-              <div
-                class="h-full bg-emerald-400 transition-all duration-200"
-                :style="{ width: `${timerPercent}%` }"
-              ></div>
-            </div>
-            <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
-          </div>
-
-          <div class="absolute top-4 right-4 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur text-right">
-            <div class="text-xs uppercase tracking-wide text-amber-300">Danger line</div>
-            <div class="text-sm text-gray-200">Don't let the tower cross the top!</div>
-          </div>
-
-          <div v-if="isGameOver" class="absolute inset-0 bg-black/70 backdrop-blur flex items-center justify-center">
-            <div class="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-sm text-center space-y-4 shadow-xl">
-              <h3 class="text-xl font-semibold text-white">Game Over</h3>
-              <p class="text-gray-300">Final score: <span class="font-semibold">{{ score }}</span></p>
-              <UButton color="emerald" icon="i-heroicons-arrow-path" @click="resetGame">Play again</UButton>
-            </div>
-          </div>
+        <div class="flex items-center gap-2">
+          <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord">
+            Submit
+          </UButton>
+          <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection">
+            Clear
+          </UButton>
         </div>
       </div>
 
-      <div class="space-y-4">
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-sm uppercase tracking-wide text-gray-400">Current Word</div>
-                <div class="text-xl font-semibold text-gray-900 dark:text-white">{{ currentWord || '—' }}</div>
-              </div>
-              <div class="text-right text-sm text-gray-500 dark:text-gray-400">Combo x{{ comboMultiplier.toFixed(1) }}</div>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex flex-wrap gap-2 min-h-[44px]">
-              <span
-                v-for="(tile, index) in selectedTiles"
-                :key="`${tile.row}-${tile.col}-${index}`"
-                class="px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 font-semibold"
-              >
-                {{ tile.letter }}
-              </span>
-            </div>
-            <div class="flex gap-2">
-              <UButton color="emerald" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord">
-                Submit (Enter)
-              </UButton>
-              <UButton variant="ghost" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection">
-                Clear
-              </UButton>
-            </div>
-            <p v-if="statusMessage" class="text-sm text-gray-500 dark:text-gray-400">{{ statusMessage }}</p>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">How to Play</h3>
-            </div>
-          </template>
-          <ol class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300">
-            <li>Click tiles to build a word. Tiles must touch (including diagonals).</li>
-            <li>Press <kbd class="px-1 py-0.5 bg-slate-800 text-white rounded">Enter</kbd> or hit Submit to clear valid words.</li>
-            <li>Every few seconds a new row spawns at the bottom. Keep the tower below the danger line.</li>
-            <li>Valid words award points, drop tiles, and slow the next row timer a bit.</li>
-          </ol>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Tips</h3>
-          </template>
-          <ul class="space-y-2 text-gray-700 dark:text-gray-300">
-            <li>Longer words pay better thanks to the combo multiplier.</li>
-            <li>Diagonal chains are allowed — weave through the stack for surprise words.</li>
-            <li>Stuck? Clear small words to buy a little more time before the next row.</li>
-          </ul>
-        </UCard>
+      <div v-if="isGameOver" class="absolute inset-0 bg-black/70 backdrop-blur flex items-center justify-center">
+        <div class="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-sm text-center space-y-4 shadow-xl">
+          <h3 class="text-xl font-semibold text-white">Game Over</h3>
+          <p class="text-gray-300">Final score: <span class="font-semibold">{{ score }}</span></p>
+          <UButton color="emerald" icon="i-heroicons-arrow-path" @click="resetGame">Play again</UButton>
+        </div>
       </div>
     </div>
+
+    <details class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
+      <summary class="cursor-pointer text-xs uppercase tracking-[0.15em] text-slate-300">How to play & tips</summary>
+      <div class="mt-3 space-y-2">
+        <p>Connect adjacent letters to form words. Enter or Submit clears them and drops the tower.</p>
+        <p class="text-slate-400">Each cleared word slows the next row timer; longer words boost the combo multiplier.</p>
+        <ul class="list-disc list-inside space-y-1">
+          <li>Diagonal chains are allowed.</li>
+          <li>Keep an eye on the timer bar — it is your breathing room.</li>
+          <li>Small clears buy time; long words push your streak.</li>
+        </ul>
+      </div>
+    </details>
+
+    <p v-if="statusMessage" class="text-sm text-emerald-200/80">{{ statusMessage }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import * as THREE from 'three'
+
+definePageMeta({ layout: 'demo' })
 import { isAdjacentPosition, scoreWord } from '~/utils/lexistack-logic'
 import { isValidWord } from '~/utils/lexistack-dictionary'
 

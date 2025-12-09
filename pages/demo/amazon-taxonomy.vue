@@ -1,173 +1,124 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center gap-3">
-      <UButton to="/" variant="ghost" icon="i-heroicons-arrow-left">Back</UButton>
+  <div class="mx-auto max-w-6xl space-y-4 text-white">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Merch taxonomy</p>
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">Amazon Taxonomy Investigator</h2>
-        <p class="text-gray-600 dark:text-gray-300">
-          Follow category paths, double-check destinations, and jump into a spatial 3D lattice to see how branches relate.
-        </p>
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-300/80">Merch taxonomy</p>
+        <h2 class="text-2xl font-semibold">Amazon Taxonomy Investigator</h2>
+        <p class="text-sm text-slate-400">Balanced for mobile: compact panels, quick search, and a touch-friendly 3D lattice.</p>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-200">
+        <UBadge color="amber" variant="soft">{{ datasetSize }} nodes</UBadge>
+        <UBadge color="gray" variant="outline">Tap nodes to jump</UBadge>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-      <UCard class="xl:col-span-2 space-y-4 order-2 xl:order-1">
-        <template #header>
-          <div class="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Current path</p>
-              <div class="flex items-center flex-wrap gap-2 text-sm">
-                <UButton
-                  color="amber"
-                  variant="soft"
-                  size="xs"
-                  label="Root"
-                  @click="selectTrail([])"
-                  :ui="{ padding: { sm: 'px-2 py-1' } }"
-                />
-                <template v-for="(crumb, index) in selectedTrail" :key="crumb + index">
-                  <span class="text-gray-400">/</span>
-                  <UButton
-                    variant="ghost"
-                    size="xs"
-                    :label="crumb"
-                    @click="jumpTo(index)"
-                    :ui="{ padding: { sm: 'px-2 py-1' } }"
-                  />
-                </template>
-              </div>
-            </div>
-            <div class="flex items-center gap-3">
-              <UBadge color="gray" variant="soft">{{ datasetSize }} total nodes</UBadge>
-              <UInput
-                v-model="search"
-                placeholder="Search categories (e.g. Laptop, DSLR, Bedding)"
-                icon="i-heroicons-magnifying-glass-20-solid"
-                class="min-w-[260px]"
-              />
-            </div>
-          </div>
-        </template>
-
-        <div class="grid sm:grid-cols-2 gap-4">
-          <div class="space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Children</h3>
-            <div v-if="!childNodes.length" class="text-sm text-gray-500 dark:text-gray-400">
-              This is a leaf node. Jump to another breadcrumb to continue exploring.
-            </div>
-            <div class="grid grid-cols-1 gap-2">
-              <UCard
-                v-for="child in childNodes"
-                :key="child.name"
-                class="cursor-pointer hover:shadow-sm"
-                @click="selectChild(child.name)"
-              >
-                <div class="flex items-start justify-between gap-2">
-                  <div>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ child.name }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ describe(child.name, child.description) }}</p>
-                  </div>
-                  <UBadge color="gray" variant="soft">{{ child.children?.length ?? 0 }} children</UBadge>
-                </div>
-              </UCard>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Node details</h3>
-            <UCard>
-              <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ activeNode?.name ?? 'Root' }}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ activeDescription }}</p>
-              <div v-if="activeNode?.children?.length" class="space-y-1">
-                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Signals</p>
-                <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-200">
-                  <li>Depth: {{ selectedTrail.length }}</li>
-                  <li>Child count: {{ activeNode.children.length }}</li>
-                  <li>Leaf previews: {{ leafPaths.length }}</li>
-                </ul>
-              </div>
-              <div v-else class="text-sm text-emerald-700 dark:text-emerald-300">
-                You landed on a leaf — try jumping back up or click a badge below to branch elsewhere.
-              </div>
-            </UCard>
-          </div>
-        </div>
-
-        <template #footer>
-          <div class="space-y-2">
-            <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Leaf previews</p>
-            <div class="flex flex-wrap gap-2">
-              <UBadge
-                v-for="path in leafPaths"
-                :key="path.join('>')"
-                color="amber"
-                variant="outline"
-                class="cursor-pointer"
-                @click="selectTrail(path)"
-              >
-                {{ path.join(' › ') }}
-              </UBadge>
-            </div>
-          </div>
-        </template>
-      </UCard>
-
-      <UCard class="space-y-4 order-1 xl:order-2">
-        <template #header>
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Spatial view</p>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">3D lattice explorer</h3>
-            </div>
-            <UBadge color="amber" variant="soft">Click nodes to jump</UBadge>
-          </div>
-        </template>
-
-        <div
-          ref="sceneContainer"
-          class="rounded-lg border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-inner min-h-[420px]"
-        ></div>
-        <div class="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-2">
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="relative rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl h-[68vh] min-h-[400px] overflow-hidden">
+        <div ref="sceneContainer" class="absolute inset-0"></div>
+        <div class="absolute left-3 right-3 bottom-3 flex flex-wrap gap-2 text-[11px] text-slate-200">
           <UBadge color="sky" variant="outline">Branch nodes</UBadge>
           <UBadge color="green" variant="outline">Leaf nodes</UBadge>
           <UBadge color="amber" variant="outline">Selected path</UBadge>
-          <span class="text-gray-600 dark:text-gray-300">Orbit to inspect; click any sphere to move the breadcrumb.</span>
+          <span class="text-slate-300">Orbit, pinch, or tap spheres to move the breadcrumb.</span>
         </div>
-      </UCard>
+      </div>
 
-      <UCard class="space-y-3 order-3 xl:order-3">
-        <template #header>
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Quick find</p>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Search results</h3>
+      <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4 space-y-4 backdrop-blur">
+        <div class="flex flex-wrap items-center gap-2 justify-between">
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <UButton color="amber" variant="soft" size="xs" label="Root" @click="selectTrail([])" :ui="{ padding: { sm: 'px-2 py-1' } }" />
+            <template v-for="(crumb, index) in selectedTrail" :key="crumb + index">
+              <span class="text-slate-500">/</span>
+              <UButton variant="ghost" size="xs" :label="crumb" @click="jumpTo(index)" :ui="{ padding: { sm: 'px-2 py-1' } }" />
+            </template>
+          </div>
+          <UInput
+            v-model="search"
+            placeholder="Search categories"
+            icon="i-heroicons-magnifying-glass-20-solid"
+            class="w-full sm:w-auto min-w-[220px]"
+          />
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-xl border border-white/5 bg-slate-950/60 p-3 space-y-2 max-h-[36vh] overflow-y-auto">
+            <div class="flex items-center justify-between text-xs uppercase tracking-[0.15em] text-slate-400">
+              <span>Children</span>
+              <span>{{ childNodes.length }} paths</span>
             </div>
-            <UBadge color="gray" variant="soft">{{ filteredResults.length }} matches</UBadge>
-          </div>
-        </template>
-
-        <div class="space-y-2">
-          <div v-if="!filteredResults.length" class="text-sm text-gray-500 dark:text-gray-400">
-            Type a partial name to surface matching categories.
-          </div>
-          <UCard
-            v-for="result in filteredResults"
-            :key="result.path.join('>')"
-            class="cursor-pointer hover:shadow-sm"
-            @click="selectTrail(result.path)"
-          >
-            <div class="flex items-center justify-between gap-3">
-              <div class="space-y-1">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ result.node.name }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ describe(result.node.name, result.node.description) }}</p>
-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ result.path.join(' › ') }}</div>
+            <div v-if="!childNodes.length" class="text-sm text-slate-400">Leaf node — jump back to branch.</div>
+            <button
+              v-for="child in childNodes"
+              :key="child.name"
+              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-left hover:border-amber-400/60 transition"
+              @click="selectChild(child.name)"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="text-sm font-semibold text-white">{{ child.name }}</p>
+                  <p class="text-xs text-slate-400">{{ describe(child.name, child.description) }}</p>
+                </div>
+                <UBadge color="gray" variant="soft">{{ child.children?.length ?? 0 }}</UBadge>
               </div>
-              <UBadge color="green" variant="outline" v-if="!result.node.children?.length">Leaf</UBadge>
+            </button>
+          </div>
+
+          <div class="rounded-xl border border-white/5 bg-slate-950/60 p-3 space-y-2 max-h-[36vh] overflow-y-auto">
+            <div class="flex items-center justify-between text-xs uppercase tracking-[0.15em] text-slate-400">
+              <span>Node</span>
+              <span>Depth {{ selectedTrail.length }}</span>
             </div>
-          </UCard>
+            <p class="text-lg font-semibold text-white">{{ activeNode?.name ?? 'Root' }}</p>
+            <p class="text-sm text-slate-300">{{ activeDescription }}</p>
+            <div v-if="activeNode?.children?.length" class="space-y-1 text-sm text-slate-200">
+              <p class="text-[11px] uppercase tracking-[0.15em] text-slate-400">Signals</p>
+              <p>Child count: {{ activeNode.children.length }}</p>
+              <p>Leaf previews: {{ leafPaths.length }}</p>
+            </div>
+            <div v-else class="text-sm text-emerald-300">Leaf reached — select a badge below to branch elsewhere.</div>
+          </div>
         </div>
-      </UCard>
+
+        <div class="rounded-xl border border-white/5 bg-slate-950/60 p-3 space-y-2">
+          <p class="text-[11px] uppercase tracking-[0.15em] text-slate-400">Leaf previews</p>
+          <div class="flex flex-wrap gap-2 max-h-[18vh] overflow-y-auto">
+            <UBadge
+              v-for="path in leafPaths"
+              :key="path.join('>')"
+              color="amber"
+              variant="outline"
+              class="cursor-pointer"
+              @click="selectTrail(path)"
+            >
+              {{ path.join(' › ') }}
+            </UBadge>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-white/5 bg-slate-950/60 p-3 space-y-2">
+          <div class="flex items-center justify-between text-xs uppercase tracking-[0.15em] text-slate-400">
+            <span>Search results</span>
+            <span>{{ filteredResults.length }} matches</span>
+          </div>
+          <div v-if="!filteredResults.length" class="text-sm text-slate-400">Type a partial name to surface matches.</div>
+          <div class="space-y-2 max-h-[18vh] overflow-y-auto">
+            <button
+              v-for="result in filteredResults"
+              :key="result.path.join('>')"
+              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-left hover:border-amber-400/60 transition"
+              @click="selectTrail(result.path)"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold text-white">{{ result.path[result.path.length - 1] }}</p>
+                  <p class="text-xs text-slate-400">{{ result.path.join(' › ') }}</p>
+                </div>
+                <UBadge color="gray" variant="soft">Depth {{ result.path.length }}</UBadge>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -176,6 +127,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+
+definePageMeta({ layout: 'demo' })
 
 interface TaxonomyNode {
   name: string

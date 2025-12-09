@@ -1,135 +1,89 @@
 <template>
-  <div>
-    <div class="mb-4">
-      <UButton to="/" variant="ghost" icon="i-heroicons-arrow-left">Back</UButton>
-    </div>
-    <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
-      Hydrogen City Pulse Map
-    </h2>
-    <div class="relative">
-      <div ref="container" class="w-full h-[600px] border border-gray-200 dark:border-gray-800 rounded-lg"></div>
-      
-      <!-- UI Controls -->
-      <div class="absolute top-4 right-4 bg-gray-900/90 dark:bg-gray-800/90 p-4 rounded-lg shadow-lg min-w-[250px] z-10 max-h-[90vh] overflow-y-auto">
-      <div class="space-y-4">
-        <!-- Energy Stats -->
-        <div class="border-b border-gray-700 pb-3">
-          <h3 class="text-sm font-semibold text-cyan-400 mb-2">Energy Stats</h3>
-          <div class="text-xs text-gray-300 space-y-1">
-            <div>Total Energy: {{ totalEnergy.toFixed(1) }}</div>
-            <div>Active Buildings: {{ activeBuildings }}</div>
-          </div>
-        </div>
-        
-        <!-- Time Controls -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            Time Scale: {{ timeScale.toFixed(2) }}x
-          </label>
-          <input
-            v-model.number="timeScale"
-            type="range"
-            min="0"
-            max="3"
-            step="0.1"
-            class="w-full"
-          />
-          <div class="flex gap-2 mt-2">
-            <UButton 
-              @click="isPaused = !isPaused" 
-              :variant="isPaused ? 'solid' : 'outline'" 
-              size="xs"
-              class="flex-1"
-            >
-              {{ isPaused ? 'Play' : 'Pause' }}
-            </UButton>
-            <UButton 
-              @click="timeScale = 1.0" 
-              variant="ghost" 
-              size="xs"
-              class="flex-1"
-            >
-              Reset
-            </UButton>
-          </div>
-        </div>
-        
-        <!-- Visualization Mode -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            View Mode
-          </label>
-          <select
-            v-model="visualizationMode"
-            @change="onViewModeChange"
-            class="w-full bg-gray-800 text-gray-300 rounded px-2 py-1 text-sm"
-          >
-            <option value="normal">Normal</option>
-            <option value="underground">Underground</option>
-            <option value="heatmap">Heat Map</option>
-          </select>
-        </div>
-        
-        <!-- Camera Presets -->
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            Camera Presets
-          </label>
-          <div class="grid grid-cols-2 gap-2">
-            <template v-for="(preset, index) in cameraPresets" :key="index">
-              <UButton 
-                v-if="preset && preset.name"
-                @click="jumpToCameraPreset(index)" 
-                variant="ghost" 
-                size="xs"
-              >
-                {{ preset.name }}
-              </UButton>
-            </template>
-          </div>
-        </div>
-        
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            Pulse Speed: {{ pulseSpeed.toFixed(2) }}
-          </label>
-          <input
-            v-model.number="pulseSpeed"
-            type="range"
-            min="0.5"
-            max="3"
-            step="0.1"
-            class="w-full"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
-            Glow Intensity: {{ glowIntensity.toFixed(2) }}
-          </label>
-          <input
-            v-model.number="glowIntensity"
-            type="range"
-            min="0.5"
-            max="3"
-            step="0.1"
-            class="w-full"
-          />
-        </div>
-        <div>
-          <label class="flex items-center text-sm font-medium text-gray-300">
-            <input
-              v-model="showVeins"
-              type="checkbox"
-              class="mr-2"
-            />
-            Show Veins
-          </label>
-        </div>
-        <UButton @click="replayFlythrough" variant="outline" size="sm" class="w-full">
-          Replay Flythrough
-        </UButton>
+  <div class="mx-auto max-w-6xl space-y-4 text-white">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-cyan-300/80">City pulse</p>
+        <h2 class="text-2xl font-semibold">Hydrogen City Pulse Map</h2>
+        <p class="text-sm text-slate-400">Built for touch: orbit, pinch, and dive into the grid without scrolling.</p>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-200">
+        <span class="rounded-full bg-cyan-500/20 px-3 py-1 border border-cyan-500/40">Interactive</span>
+        <span class="rounded-full bg-white/5 px-3 py-1 border border-white/10">No scroll UI</span>
       </div>
     </div>
+
+    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[420px] overflow-hidden">
+      <div ref="container" class="absolute inset-0"></div>
+
+      <div
+        class="absolute inset-x-3 bottom-3 z-10 grid gap-3 rounded-xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur md:inset-auto md:top-4 md:right-4 md:w-72 md:p-4"
+      >
+        <div class="flex items-center justify-between text-sm">
+          <div>
+            <p class="text-[11px] uppercase tracking-[0.2em] text-cyan-300">Energy</p>
+            <p class="font-semibold">{{ totalEnergy.toFixed(1) }}</p>
+          </div>
+          <div class="text-right text-xs text-slate-300">
+            <p>Active: {{ activeBuildings }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs text-slate-200">
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Time <span>{{ timeScale.toFixed(2) }}x</span></span>
+            <input v-model.number="timeScale" type="range" min="0" max="3" step="0.1" />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Pulse <span>{{ pulseSpeed.toFixed(1) }}</span></span>
+            <input v-model.number="pulseSpeed" type="range" min="0.5" max="3" step="0.1" />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Glow <span>{{ glowIntensity.toFixed(1) }}</span></span>
+            <input v-model.number="glowIntensity" type="range" min="0.5" max="3" step="0.1" />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">View</span>
+            <select
+              v-model="visualizationMode"
+              @change="onViewModeChange"
+              class="w-full rounded-md bg-slate-800/70 px-2 py-1 text-[13px]"
+            >
+              <option value="normal">Normal</option>
+              <option value="underground">Underground</option>
+              <option value="heatmap">Heat Map</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <UButton @click="isPaused = !isPaused" :variant="isPaused ? 'solid' : 'outline'" size="xs" class="w-full">
+            {{ isPaused ? 'Play' : 'Pause' }}
+          </UButton>
+          <UButton @click="timeScale = 1.0" variant="ghost" size="xs" class="w-full">Reset</UButton>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <label class="flex items-center gap-2 text-slate-200">
+            <input v-model="showVeins" type="checkbox" class="accent-cyan-400" />
+            <span>Show veins</span>
+          </label>
+          <UButton @click="replayFlythrough" variant="outline" size="xs" class="w-full">Flythrough</UButton>
+        </div>
+
+        <div class="flex flex-wrap gap-2 text-xs text-slate-200">
+          <UButton
+            v-for="(preset, index) in cameraPresets"
+            :key="preset?.name ?? index"
+            v-if="preset && preset.name"
+            @click="jumpToCameraPreset(index)"
+            variant="ghost"
+            size="xs"
+            class="flex-1 min-w-[120px]"
+          >
+            {{ preset.name }}
+          </UButton>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -137,6 +91,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
+
+definePageMeta({ layout: 'demo' })
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
