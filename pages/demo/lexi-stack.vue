@@ -13,8 +13,8 @@
       </div>
     </div>
 
-    <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
-      <div ref="container" class="h-full w-full"></div>
+      <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
+        <div ref="container" class="h-full w-full"></div>
 
       <button
         @click="showInfo = !showInfo"
@@ -61,6 +61,21 @@
             Clear
           </UButton>
         </div>
+
+        <div class="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+          <span class="text-[11px] uppercase tracking-[0.15em] text-slate-400">Performance</span>
+          <UButton
+            size="xs"
+            variant="soft"
+            :color="performanceMode ? 'amber' : 'emerald'"
+            icon="i-heroicons-bolt"
+            :aria-pressed="performanceMode"
+            @click="togglePerformanceMode"
+          >
+            {{ performanceMode ? 'Performance' : 'Cinematic' }}
+          </UButton>
+          <span class="text-[11px] text-slate-400">{{ adaptiveNote }}</span>
+        </div>
       </div>
 
       <div v-if="isGameOver" class="absolute inset-0 bg-black/70 backdrop-blur flex items-center justify-center">
@@ -95,8 +110,12 @@ definePageMeta({
   layout: 'demo'
 })
 
-import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
+import { onMounted, onUnmounted, ref, computed, nextTick, markRaw, watch } from 'vue'
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
 import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
 import { isValidWord } from '@/utils/lexistack-dictionary'
 
@@ -106,6 +125,7 @@ interface TileData {
   row: number
   col: number
   targetY: number
+  velocityY: number
   removing: boolean
   removeTimer: number
   flashTimer: number
@@ -158,6 +178,23 @@ const raycaster = markRaw(new THREE.Raycaster())
 const pointer = markRaw(new THREE.Vector2())
 const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
+let composer: EffectComposer | null = null
+let renderPass: RenderPass | null = null
+let bloomPass: UnrealBloomPass | null = null
+let aoPass: SSAOPass | null = null
+let pmremGenerator: THREE.PMREMGenerator | null = null
+let environmentTarget: THREE.RenderTarget | null = null
+let frameCounter = 0
+let frameSkip = 0
+let targetPixelRatio = 1
+const fpsHistory: number[] = []
+const parallax = markRaw(new THREE.Vector2())
+const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia
+  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  : false
+const lowEndDevice = typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+  ? navigator.hardwareConcurrency <= 4
+  : false
 
 const showInfo = ref(false)
 const grid = ref<Array<Array<TileData | null>>>([])
@@ -169,6 +206,9 @@ const rowInterval = ref(START_INTERVAL)
 const timeUntilNextRow = ref(rowInterval.value)
 const isGameOver = ref(false)
 const statusMessage = ref('')
+const performanceMode = ref(prefersReducedMotion || lowEndDevice)
+const postProcessingSupported = ref(true)
+const adaptiveNote = ref('Adaptive rendering active')
 
 const boardWidth = GRID_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP
 const boardHeight = GRID_ROWS_VISIBLE * (TILE_SIZE + TILE_GAP) - TILE_GAP
@@ -214,9 +254,12 @@ const createTile = (letter: string, row: number, col: number, startY?: number): 
   const material = new THREE.MeshStandardMaterial({
     color: '#cbd5f5',
     emissive: '#0ea5e9',
-    metalness: 0.05,
-    roughness: 0.5,
+    metalness: 0.25,
+    roughness: 0.35,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.4,
     map: texture ?? undefined,
+    envMapIntensity: 1,
     transparent: true
   })
   const mesh = new THREE.Mesh(geometry, material)
@@ -224,7 +267,17 @@ const createTile = (letter: string, row: number, col: number, startY?: number): 
   mesh.castShadow = true
   mesh.receiveShadow = true
   mesh.userData = { row, col }
-  return { letter, mesh, row, col, targetY: getTileY(row), removing: false, removeTimer: 0.3, flashTimer: 0 }
+  return {
+    letter,
+    mesh,
+    row,
+    col,
+    targetY: getTileY(row),
+    velocityY: 0,
+    removing: false,
+    removeTimer: 0.3,
+    flashTimer: 0
+  }
 }
 
 const getRandomLetter = () => {
@@ -251,24 +304,109 @@ const initScene = () => {
   camera.position.set(0, boardHeight / 3, 15)
   camera.lookAt(0, boardHeight / 3, 0)
 
-  renderer = markRaw(new THREE.WebGLRenderer({ antialias: true }))
+  renderer = markRaw(new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }))
   renderer.setSize(width, height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  targetPixelRatio = Math.min(window.devicePixelRatio, 2)
+  renderer.setPixelRatio(targetPixelRatio)
   renderer.shadowMap.enabled = false
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.physicallyCorrectLights = true
   container.value.appendChild(renderer.domElement)
 
-  const ambient = new THREE.AmbientLight('#ffffff', 0.6)
+  postProcessingSupported.value = renderer.capabilities.isWebGL2
+  if (!postProcessingSupported.value) {
+    adaptiveNote.value = 'Post effects reduced for compatibility'
+  }
+
+  const ambient = new THREE.AmbientLight('#ffffff', 0.7)
   scene.add(ambient)
 
-  const dir = new THREE.DirectionalLight('#87d1ff', 0.8)
-  dir.position.set(4, 8, 6)
+  const dir = new THREE.DirectionalLight('#87d1ff', 1.05)
+  dir.position.set(4, 10, 6)
+  dir.castShadow = false
   scene.add(dir)
+
+  setupEnvironment()
 
   const planeGeo = new THREE.PlaneGeometry(boardWidth * 1.2, boardHeight * 1.4)
   const planeMat = new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: 0.75 })
   const base = new THREE.Mesh(planeGeo, planeMat)
   base.position.set(0, boardOriginY + boardHeight / 2, -1)
   scene.add(base)
+
+  setupPostProcessing(width, height)
+}
+
+const setupEnvironment = () => {
+  if (!renderer || !scene) return
+  if (environmentTarget) {
+    environmentTarget.dispose()
+    environmentTarget = null
+  }
+  if (!pmremGenerator) {
+    pmremGenerator = new THREE.PMREMGenerator(renderer)
+  }
+  const texture = createGradientTexture()
+  texture.colorSpace = THREE.SRGBColorSpace
+  const envTarget = pmremGenerator.fromEquirectangular(texture)
+  texture.dispose()
+  environmentTarget = envTarget
+  scene.environment = envTarget.texture
+  scene.background = envTarget.texture
+}
+
+const createGradientTexture = () => {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size / 2
+  const ctx = canvas.getContext('2d')!
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
+  gradient.addColorStop(0, '#0b1021')
+  gradient.addColorStop(0.5, '#0f1f3a')
+  gradient.addColorStop(1, '#0b162c')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.ClampToEdgeWrapping
+  texture.wrapT = THREE.ClampToEdgeWrapping
+  return texture
+}
+
+const setupPostProcessing = (width: number, height: number) => {
+  if (!scene || !camera || !renderer) return
+  disposePostProcessing()
+  if (performanceMode.value || !postProcessingSupported.value) return
+
+  composer = markRaw(new EffectComposer(renderer))
+  composer.setSize(width, height)
+  composer.setPixelRatio(renderer.getPixelRatio())
+
+  renderPass = markRaw(new RenderPass(scene, camera))
+  bloomPass = markRaw(new UnrealBloomPass(new THREE.Vector2(width, height), 0.45, 0.9, 0.35))
+  bloomPass.threshold = 0.2
+  bloomPass.strength = 0.8
+  bloomPass.radius = 0.55
+
+  aoPass = markRaw(new SSAOPass(scene, camera, width, height))
+  aoPass.kernelRadius = 6
+  aoPass.minDistance = 0.001
+  aoPass.maxDistance = 0.15
+
+  composer.addPass(renderPass)
+  composer.addPass(aoPass)
+  composer.addPass(bloomPass)
+}
+
+const disposePostProcessing = () => {
+  if (composer) {
+    composer.dispose()
+    composer = null
+  }
+  renderPass = null
+  bloomPass = null
+  aoPass = null
 }
 
 const spawnInitialRows = () => {
@@ -306,6 +444,7 @@ const addNewRow = () => {
   for (let col = 0; col < GRID_COLS; col++) {
     const letter = getRandomLetter()
     const tile = createTile(letter, 0, col, boardOriginY - TILE_SIZE * 2)
+    tile.velocityY = 0
     grid.value[0][col] = tile
     if (scene) scene.add(tile.mesh)
   }
@@ -329,6 +468,22 @@ const handlePointerDown = (event: PointerEvent) => {
       toggleTileSelection(tile)
     }
   }
+}
+
+const handlePointerMove = (event: PointerEvent) => {
+  if (!renderer) return
+  const rect = renderer.domElement.getBoundingClientRect()
+  parallax.x = (event.clientX - rect.left) / rect.width - 0.5
+  parallax.y = (event.clientY - rect.top) / rect.height - 0.5
+}
+
+const handlePointerLeave = () => {
+  parallax.set(0, 0)
+}
+
+const togglePerformanceMode = () => {
+  performanceMode.value = !performanceMode.value
+  adaptiveNote.value = performanceMode.value ? 'Performance mode on' : 'Adaptive rendering active'
 }
 
 const findTileByMesh = (mesh: THREE.Object3D): TileData | null => {
@@ -433,6 +588,7 @@ const applyGravityAfterDelay = () => {
             tile.row = writeRow
             tile.targetY = getTileY(writeRow)
             tile.mesh.userData.row = writeRow
+            tile.velocityY = 0
           }
           writeRow++
         }
@@ -450,6 +606,36 @@ const update = () => {
   const delta = clock.getDelta()
   if (!scene || !camera || !renderer) return
 
+  const fps = 1 / Math.max(delta, 0.0001)
+  fpsHistory.push(fps)
+  if (fpsHistory.length > 120) fpsHistory.shift()
+  const avgFps = fpsHistory.reduce((acc, value) => acc + value, 0) / fpsHistory.length
+
+  if (!performanceMode.value) {
+    if (avgFps < 35) {
+      frameSkip = 1
+      targetPixelRatio = Math.max(0.75, targetPixelRatio * 0.9)
+      adaptiveNote.value = 'Reducing resolution to protect FPS'
+    } else if (avgFps < 45) {
+      frameSkip = 0
+      targetPixelRatio = Math.max(0.85, Math.min(targetPixelRatio, 1.1))
+      adaptiveNote.value = 'Adaptive rendering active'
+    } else {
+      frameSkip = 0
+      targetPixelRatio = Math.min(Math.max(targetPixelRatio, 1), Math.min(window.devicePixelRatio, 1.5))
+      adaptiveNote.value = 'Visuals enhanced'
+    }
+  } else {
+    frameSkip = 1
+    targetPixelRatio = 0.85
+    adaptiveNote.value = 'Performance mode on'
+  }
+
+  renderer.setPixelRatio(targetPixelRatio)
+  if (composer) {
+    composer.setPixelRatio(targetPixelRatio)
+  }
+
   if (!isGameOver.value) {
     timeUntilNextRow.value -= delta
     if (timeUntilNextRow.value <= 0) {
@@ -460,7 +646,12 @@ const update = () => {
   for (const row of grid.value) {
     for (const tile of row) {
       if (!tile) continue
-      tile.mesh.position.y += (tile.targetY - tile.mesh.position.y) * Math.min(10 * delta, 1)
+      const spring = performanceMode.value ? 7 : 11
+      const damping = performanceMode.value ? 0.82 : 0.88
+      const displacement = tile.targetY - tile.mesh.position.y
+      tile.velocityY += displacement * spring * delta
+      tile.velocityY *= damping
+      tile.mesh.position.y += tile.velocityY
 
       if (tile.removing) {
         tile.removeTimer -= delta
@@ -499,7 +690,22 @@ const update = () => {
     }
   }
 
-  renderer.render(scene, camera)
+  const parallaxStrength = performanceMode.value ? 0.2 : 0.55
+  const targetCamX = parallax.x * parallaxStrength
+  const targetCamY = boardHeight / 3 + parallax.y * parallaxStrength
+  camera.position.x += (targetCamX - camera.position.x) * 0.08
+  camera.position.y += (targetCamY - camera.position.y) * 0.08
+  camera.lookAt(0, boardHeight / 3, 0)
+
+  const shouldSkipRender = frameSkip > 0 && frameCounter % (frameSkip + 1) !== 0
+  if (!shouldSkipRender) {
+    if (composer && !performanceMode.value) {
+      composer.render()
+    } else {
+      renderer.render(scene, camera)
+    }
+  }
+  frameCounter++
   animationId = requestAnimationFrame(update)
 }
 
@@ -544,7 +750,28 @@ const handleResize = () => {
   camera.bottom = -halfH
   camera.updateProjectionMatrix()
   renderer.setSize(width, height)
+  renderer.setPixelRatio(targetPixelRatio)
+  if (composer) {
+    composer.setSize(width, height)
+    composer.setPixelRatio(targetPixelRatio)
+  } else if (!performanceMode.value) {
+    setupPostProcessing(width, height)
+  }
 }
+
+watch(performanceMode, () => {
+  if (!container.value || !renderer) return
+  const width = container.value.clientWidth
+  const height = container.value.clientHeight
+  targetPixelRatio = performanceMode.value ? 0.85 : Math.min(window.devicePixelRatio, 1.5)
+  renderer.setPixelRatio(targetPixelRatio)
+  renderer.setSize(width, height)
+  if (performanceMode.value) {
+    disposePostProcessing()
+  } else {
+    setupPostProcessing(width, height)
+  }
+})
 
 onMounted(async () => {
   await nextTick()
@@ -555,6 +782,8 @@ onMounted(async () => {
 
   if (renderer) {
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+    renderer.domElement.addEventListener('pointermove', handlePointerMove)
+    renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
   }
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
@@ -570,6 +799,8 @@ onUnmounted(() => {
   }
   if (renderer) {
     renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+    renderer.domElement.removeEventListener('pointermove', handlePointerMove)
+    renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
   }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
@@ -584,6 +815,17 @@ onUnmounted(() => {
       }
     }
   }
+
+  if (environmentTarget) {
+    environmentTarget.dispose()
+    environmentTarget = null
+  }
+  if (pmremGenerator) {
+    pmremGenerator.dispose()
+    pmremGenerator = null
+  }
+
+  disposePostProcessing()
 
   if (renderer) {
     if (container.value && renderer.domElement.parentNode) {
