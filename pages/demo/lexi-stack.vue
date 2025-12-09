@@ -1,15 +1,27 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-4 text-white">
-    <div class="flex items-center justify-between gap-3">
-      <div>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="space-y-1">
         <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Word tower</p>
         <h2 class="text-2xl font-semibold">LexiStack</h2>
         <p class="text-sm text-slate-400">A single-column experience built to stay within the viewport on phones.</p>
+        <p class="text-xs text-slate-400">Seed: {{ seedLabel }}</p>
       </div>
-      <div class="text-right text-sm">
-        <p class="text-xs uppercase tracking-[0.2em] text-emerald-300">Score</p>
-        <p class="text-3xl font-bold">{{ score }}</p>
-        <p class="text-[12px] text-slate-400">Best streak x{{ bestCombo.toFixed(1) }}</p>
+      <div class="flex items-start gap-3">
+        <div class="text-right text-sm">
+          <p class="text-xs uppercase tracking-[0.2em] text-emerald-300">Score</p>
+          <p class="text-3xl font-bold">{{ score }}</p>
+          <p class="text-[12px] text-slate-400">Best streak x{{ bestCombo.toFixed(1) }}</p>
+          <p class="text-[12px] text-slate-400">Best score {{ bestScore }}</p>
+          <p class="text-[12px] text-emerald-300/80">{{ dynamicLabel }}</p>
+        </div>
+        <div class="flex flex-col gap-2 text-xs">
+          <UButton size="sm" :color="isPaused ? 'amber' : 'emerald'" icon="i-heroicons-pause" @click="togglePause">
+            {{ isPaused ? 'Resume' : 'Pause' }}
+          </UButton>
+          <UButton size="sm" variant="ghost" icon="i-heroicons-sparkles" @click="applyDailySeed">Daily challenge</UButton>
+          <UButton size="sm" variant="ghost" icon="i-heroicons-arrow-path" @click="useRandomSeed">Random seed</UButton>
+        </div>
       </div>
     </div>
 
@@ -63,6 +75,14 @@
         </div>
       </div>
 
+      <div v-if="isPaused && !isGameOver" class="absolute inset-0 bg-black/60 backdrop-blur flex items-center justify-center">
+        <div class="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-sm text-center space-y-3 shadow-xl">
+          <h3 class="text-xl font-semibold text-white">Paused</h3>
+          <p class="text-gray-300">Resume to keep the timer rolling.</p>
+          <UButton color="emerald" icon="i-heroicons-play" @click="togglePause">Resume</UButton>
+        </div>
+      </div>
+
       <div v-if="isGameOver" class="absolute inset-0 bg-black/70 backdrop-blur flex items-center justify-center">
         <div class="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-sm text-center space-y-4 shadow-xl">
           <h3 class="text-xl font-semibold text-white">Game Over</h3>
@@ -85,6 +105,63 @@
       </div>
     </details>
 
+    <details class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
+      <summary class="cursor-pointer text-xs uppercase tracking-[0.15em] text-slate-300">Difficulty & challenge seed</summary>
+      <div class="mt-3 space-y-3 text-xs text-slate-300">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Start interval (s)</span>
+            <input v-model.number="difficulty.startInterval" type="number" step="0.1" min="1" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Minimum interval (s)</span>
+            <input v-model.number="difficulty.minInterval" type="number" step="0.1" min="0.5" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Interval decay</span>
+            <input v-model.number="difficulty.intervalDecrease" type="number" step="0.01" min="0.01" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Timer reward</span>
+            <input v-model.number="difficulty.timerReward" type="number" step="0.05" min="0" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Streak acceleration</span>
+            <input v-model.number="difficulty.streakAcceleration" type="number" step="0.01" min="0" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Mistake recovery</span>
+            <input v-model.number="difficulty.mistakeRecovery" type="number" step="0.01" min="0" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] uppercase tracking-[0.12em] text-slate-400">Timer decay penalty</span>
+            <input v-model.number="difficulty.timerDecayPenalty" type="number" step="0.05" min="0" class="w-full rounded border border-white/10 bg-slate-950/60 px-2 py-1" />
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton size="xs" icon="i-heroicons-sparkles" @click="applyDailySeed">Daily seed</UButton>
+          <UButton size="xs" variant="ghost" icon="i-heroicons-arrow-path" @click="useRandomSeed">Randomize seed</UButton>
+          <span class="text-[11px] text-slate-400">Current seed: {{ seedLabel }}</span>
+        </div>
+        <p class="text-[11px] text-emerald-200">{{ dynamicLabel }}</p>
+      </div>
+    </details>
+
+    <details class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
+      <summary class="cursor-pointer text-xs uppercase tracking-[0.15em] text-slate-300">Analytics stream</summary>
+      <div class="mt-3 space-y-2 text-xs text-slate-300">
+        <p class="text-slate-400">Events emitted for AB testing and tuning.</p>
+        <div v-if="!analyticsEvents.length" class="text-slate-500">No events yet.</div>
+        <ul v-else class="space-y-1">
+          <li v-for="event in analyticsEvents" :key="event.ts" class="rounded border border-white/5 bg-white/5 px-2 py-1">
+            <span class="font-semibold text-emerald-200">{{ event.type }}</span>
+            <span class="text-slate-400"> · {{ new Date(event.ts).toLocaleTimeString() }}</span>
+            <pre v-if="event.payload" class="mt-1 whitespace-pre-wrap text-[11px] text-slate-400">{{ JSON.stringify(event.payload, null, 2) }}</pre>
+          </li>
+        </ul>
+      </div>
+    </details>
+
     <p v-if="statusMessage" class="text-sm text-emerald-200/80">{{ statusMessage }}</p>
   </div>
 </template>
@@ -95,7 +172,7 @@ definePageMeta({
   layout: 'demo'
 })
 
-import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
+import { onMounted, onUnmounted, ref, computed, nextTick, markRaw, reactive, watch } from 'vue'
 import * as THREE from 'three'
 import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
 import { isValidWord } from '@/utils/lexistack-dictionary'
@@ -116,10 +193,19 @@ const GRID_ROWS_VISIBLE = 10
 const TILE_SIZE = 0.9
 const TILE_GAP = 0.14
 const INITIAL_ROWS = 5
-const START_INTERVAL = 7
-const MIN_INTERVAL = 3
-const INTERVAL_DECREASE = 0.05
-const TIMER_REWARD = 1.1
+
+const defaultDifficulty = {
+  startInterval: 7,
+  minInterval: 3,
+  intervalDecrease: 0.05,
+  timerReward: 1.1,
+  streakAcceleration: 0.12,
+  mistakeRecovery: 0.35,
+  timerDecayPenalty: 0.5
+}
+
+const STORAGE_KEY = 'lexistack-run'
+const BEST_KEY = 'lexistack-best'
 
 const LETTER_POOL: Array<{ letter: string; weight: number }> = [
   { letter: 'E', weight: 12 },
@@ -159,16 +245,26 @@ const pointer = markRaw(new THREE.Vector2())
 const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
 
+const difficulty = reactive({ ...defaultDifficulty })
+const streakCount = ref(0)
+const mistakeCount = ref(0)
+const useDailySeed = ref(false)
+const activeSeed = ref('')
+let randomFn: () => number = Math.random
+
 const showInfo = ref(false)
 const grid = ref<Array<Array<TileData | null>>>([])
 const selectedTiles = ref<TileData[]>([])
 const score = ref(0)
+const bestScore = ref(0)
 const comboMultiplier = ref(1)
 const bestCombo = ref(1)
-const rowInterval = ref(START_INTERVAL)
+const rowInterval = ref(defaultDifficulty.startInterval)
 const timeUntilNextRow = ref(rowInterval.value)
 const isGameOver = ref(false)
+const isPaused = ref(false)
 const statusMessage = ref('')
+const analyticsEvents = ref<Array<{ type: string; payload?: Record<string, unknown>; ts: number }>>([])
 
 const boardWidth = GRID_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP
 const boardHeight = GRID_ROWS_VISIBLE * (TILE_SIZE + TILE_GAP) - TILE_GAP
@@ -176,6 +272,10 @@ const boardOriginY = -boardHeight / 2
 
 const timerPercent = computed(() => Math.max(0, Math.min(100, (timeUntilNextRow.value / rowInterval.value) * 100)))
 const currentWord = computed(() => selectedTiles.value.map((tile) => tile.letter).join(''))
+const seedLabel = computed(() => (activeSeed.value ? activeSeed.value : 'Randomized'))
+const dynamicLabel = computed(
+  () => `Streak ${streakCount.value} · Mistakes ${mistakeCount.value} · Interval ${rowInterval.value.toFixed(2)}s`
+)
 
 const tileMeshes = () => {
   return grid.value.flatMap((row) => row.filter((tile): tile is TileData => !!tile).map((tile) => tile.mesh))
@@ -183,6 +283,102 @@ const tileMeshes = () => {
 
 const getTileY = (row: number) => boardOriginY + row * (TILE_SIZE + TILE_GAP)
 const getTileX = (col: number) => (col - (GRID_COLS - 1) / 2) * (TILE_SIZE + TILE_GAP)
+
+const persistBest = () => {
+  if (typeof window === 'undefined') return
+  const bestPayload = { bestScore: bestScore.value, bestCombo: bestCombo.value }
+  localStorage.setItem(BEST_KEY, JSON.stringify(bestPayload))
+}
+
+const loadBest = () => {
+  if (typeof window === 'undefined') return
+  const stored = localStorage.getItem(BEST_KEY)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      bestScore.value = parsed.bestScore ?? 0
+      bestCombo.value = parsed.bestCombo ?? 1
+    } catch (error) {
+      console.warn('Failed to parse best run', error)
+    }
+  }
+}
+
+const serializeGrid = () => {
+  return grid.value.map((row) => row.map((tile) => (tile ? tile.letter : null)))
+}
+
+const saveState = () => {
+  if (typeof window === 'undefined') return
+  const payload = {
+    grid: serializeGrid(),
+    score: score.value,
+    bestScore: bestScore.value,
+    comboMultiplier: comboMultiplier.value,
+    bestCombo: bestCombo.value,
+    rowInterval: rowInterval.value,
+    timeUntilNextRow: timeUntilNextRow.value,
+    streakCount: streakCount.value,
+    mistakeCount: mistakeCount.value,
+    seed: activeSeed.value,
+    useDailySeed: useDailySeed.value,
+    isGameOver: isGameOver.value,
+    isPaused: isPaused.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  persistBest()
+}
+
+const rebuildGridFromLetters = (letters: Array<Array<string | null>>) => {
+  if (!scene) return
+  grid.value = Array.from({ length: GRID_ROWS_VISIBLE }, (_, rowIndex) =>
+    Array.from({ length: GRID_COLS }, (_, colIndex) => {
+      const letter = letters[rowIndex]?.[colIndex]
+      if (!letter) return null
+      const tile = createTile(letter, rowIndex, colIndex)
+      scene.add(tile.mesh)
+      return tile
+    })
+  )
+}
+
+watch(bestScore, persistBest)
+watch(bestCombo, persistBest)
+watch(
+  () => ({ ...difficulty }),
+  () => {
+    rowInterval.value = Math.max(difficulty.minInterval, Math.min(rowInterval.value, difficulty.startInterval * 2))
+    saveState()
+  },
+  { deep: true }
+)
+
+const restoreState = () => {
+  if (typeof window === 'undefined') return false
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (!stored) return false
+  try {
+    const parsed = JSON.parse(stored)
+    setSeed(parsed.seed || '')
+    useDailySeed.value = parsed.useDailySeed ?? false
+    rowInterval.value = parsed.rowInterval ?? difficulty.startInterval
+    timeUntilNextRow.value = parsed.timeUntilNextRow ?? rowInterval.value
+    score.value = parsed.score ?? 0
+    bestScore.value = parsed.bestScore ?? 0
+    comboMultiplier.value = parsed.comboMultiplier ?? 1
+    bestCombo.value = parsed.bestCombo ?? 1
+    streakCount.value = parsed.streakCount ?? 0
+    mistakeCount.value = parsed.mistakeCount ?? 0
+    isGameOver.value = parsed.isGameOver ?? false
+    isPaused.value = parsed.isPaused ?? false
+    if (parsed.grid) rebuildGridFromLetters(parsed.grid)
+    recordEvent('restored_run', { score: score.value, bestCombo: bestCombo.value })
+    return true
+  } catch (error) {
+    console.warn('Failed to restore run', error)
+  }
+  return false
+}
 
 const resetMaterials = (tile: TileData) => {
   const material = tile.mesh.material as THREE.MeshStandardMaterial
@@ -227,9 +423,41 @@ const createTile = (letter: string, row: number, col: number, startY?: number): 
   return { letter, mesh, row, col, targetY: getTileY(row), removing: false, removeTimer: 0.3, flashTimer: 0 }
 }
 
+const createSeededRandom = (seed: string) => {
+  let t = 0
+  for (let i = 0; i < seed.length; i++) {
+    t = (t << 5) - t + seed.charCodeAt(i)
+    t |= 0
+  }
+  let state = t || 1
+  return () => {
+    state |= 0
+    state = (state + 0x6d2b79f5) | 0
+    let z = state
+    z = Math.imul(z ^ (z >>> 15), z | 1)
+    z ^= z + Math.imul(z ^ (z >>> 7), z | 61)
+    return ((z ^ (z >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const recordEvent = (type: string, payload?: Record<string, unknown>) => {
+  const entry = { type, payload, ts: Date.now() }
+  analyticsEvents.value.unshift(entry)
+  if (analyticsEvents.value.length > 25) {
+    analyticsEvents.value.pop()
+  }
+  console.debug('[lexistack-event]', type, payload)
+}
+
+const setSeed = (seed: string) => {
+  activeSeed.value = seed
+  randomFn = seed ? createSeededRandom(seed) : Math.random
+  recordEvent('seed_set', { seed: seed || 'random' })
+}
+
 const getRandomLetter = () => {
   const totalWeight = LETTER_POOL.reduce((sum, entry) => sum + entry.weight, 0)
-  const roll = Math.random() * totalWeight
+  const roll = randomFn() * totalWeight
   let cumulative = 0
   for (const entry of LETTER_POOL) {
     cumulative += entry.weight
@@ -310,12 +538,14 @@ const addNewRow = () => {
     if (scene) scene.add(tile.mesh)
   }
 
-  rowInterval.value = Math.max(MIN_INTERVAL, rowInterval.value - INTERVAL_DECREASE)
+  rowInterval.value = Math.max(difficulty.minInterval, rowInterval.value - difficulty.intervalDecrease)
   timeUntilNextRow.value = rowInterval.value
+  recordEvent('row_added', { interval: rowInterval.value })
+  saveState()
 }
 
 const handlePointerDown = (event: PointerEvent) => {
-  if (!renderer || !camera || !scene || isGameOver.value) return
+  if (!renderer || !camera || !scene || isGameOver.value || isPaused.value) return
   const rect = renderer.domElement.getBoundingClientRect()
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -379,12 +609,45 @@ const clearSelection = () => {
   selectedTiles.value = []
 }
 
+const applyDynamicDifficultyForClear = (wordLength: number) => {
+  streakCount.value += 1
+  mistakeCount.value = 0
+  const streakBoost = 1 + streakCount.value * difficulty.streakAcceleration
+  rowInterval.value = Math.max(difficulty.minInterval, rowInterval.value - difficulty.intervalDecrease * streakBoost)
+  const reward = difficulty.timerReward + wordLength * 0.05
+  timeUntilNextRow.value = Math.min(rowInterval.value * 1.6, timeUntilNextRow.value + reward)
+  recordEvent('word_cleared', { streak: streakCount.value, length: wordLength, reward, interval: rowInterval.value })
+}
+
+const registerMistake = (reason: string) => {
+  streakCount.value = 0
+  mistakeCount.value += 1
+  rowInterval.value = Math.min(difficulty.startInterval * 1.6, rowInterval.value + difficulty.intervalDecrease * (1 + mistakeCount.value * difficulty.mistakeRecovery))
+  timeUntilNextRow.value = Math.max(difficulty.minInterval, timeUntilNextRow.value - difficulty.timerDecayPenalty)
+  recordEvent('mistake', { reason, mistakes: mistakeCount.value, interval: rowInterval.value })
+  saveState()
+}
+
+const applyDailySeed = () => {
+  const today = new Date().toISOString().slice(0, 10)
+  useDailySeed.value = true
+  setSeed(`daily-${today}`)
+  saveState()
+}
+
+const useRandomSeed = () => {
+  useDailySeed.value = false
+  setSeed('')
+  saveState()
+}
+
 const submitWord = () => {
   if (!selectedTiles.value.length || isGameOver.value) return
   const word = currentWord.value.toUpperCase()
   if (word.length < 2) {
     statusMessage.value = 'Select at least two letters.'
     flashTiles(selectedTiles.value)
+    registerMistake('too_short')
     clearSelection()
     return
   }
@@ -393,6 +656,7 @@ const submitWord = () => {
     statusMessage.value = `${word} is not in the dictionary.`
     comboMultiplier.value = 1
     flashTiles(selectedTiles.value)
+    registerMistake('invalid_word')
     clearSelection()
     return
   }
@@ -400,9 +664,19 @@ const submitWord = () => {
   const letters = selectedTiles.value.map((tile) => tile.letter)
   const total = scoreWord(letters, comboMultiplier.value)
   score.value += total
+  bestScore.value = Math.max(bestScore.value, score.value)
   comboMultiplier.value = Math.min(5, comboMultiplier.value + 0.1)
   bestCombo.value = Math.max(bestCombo.value, comboMultiplier.value)
   statusMessage.value = `Cleared ${word}! +${total} points`
+  recordEvent('word_play', {
+    word,
+    length: word.length,
+    scoreGain: total,
+    combo: comboMultiplier.value,
+    interval: rowInterval.value
+  })
+  applyDynamicDifficultyForClear(word.length)
+  saveState()
 
   for (const tile of selectedTiles.value) {
     tile.removing = true
@@ -411,13 +685,19 @@ const submitWord = () => {
 
   clearSelection()
   applyGravityAfterDelay()
-  timeUntilNextRow.value = Math.min(rowInterval.value, timeUntilNextRow.value + TIMER_REWARD)
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
+  if (isPaused.value) return
   if (event.key === 'Enter') {
     submitWord()
   }
+}
+
+const togglePause = () => {
+  isPaused.value = !isPaused.value
+  recordEvent('pause_toggle', { paused: isPaused.value })
+  saveState()
 }
 
 const applyGravityAfterDelay = () => {
@@ -443,27 +723,27 @@ const applyGravityAfterDelay = () => {
         }
       }
     }
+    saveState()
   }, 220)
 }
 
 const update = () => {
   const delta = clock.getDelta()
+  const activeDelta = isPaused.value ? 0 : delta
   if (!scene || !camera || !renderer) return
 
-  if (!isGameOver.value) {
-    timeUntilNextRow.value -= delta
-    if (timeUntilNextRow.value <= 0) {
-      addNewRow()
-    }
+  if (!isGameOver.value && !isPaused.value) {
+    timeUntilNextRow.value -= activeDelta
+    if (timeUntilNextRow.value <= 0) addNewRow()
   }
 
   for (const row of grid.value) {
     for (const tile of row) {
       if (!tile) continue
-      tile.mesh.position.y += (tile.targetY - tile.mesh.position.y) * Math.min(10 * delta, 1)
+      tile.mesh.position.y += (tile.targetY - tile.mesh.position.y) * Math.min(10 * activeDelta, 1)
 
       if (tile.removing) {
-        tile.removeTimer -= delta
+        tile.removeTimer -= activeDelta
         const t = Math.max(tile.removeTimer, 0) / 0.35
         tile.mesh.scale.setScalar(1 + (1 - t) * 0.2)
         const material = tile.mesh.material as THREE.MeshStandardMaterial
@@ -488,7 +768,7 @@ const update = () => {
       }
 
       if (tile.flashTimer > 0) {
-        tile.flashTimer -= delta
+        tile.flashTimer -= activeDelta
         const material = tile.mesh.material as THREE.MeshStandardMaterial
         material.emissive.set('#f97316')
         if (tile.flashTimer <= 0) {
@@ -509,9 +789,12 @@ const resetGame = () => {
   score.value = 0
   comboMultiplier.value = 1
   bestCombo.value = 1
-  rowInterval.value = START_INTERVAL
+  rowInterval.value = difficulty.startInterval
   timeUntilNextRow.value = rowInterval.value
   isGameOver.value = false
+  isPaused.value = false
+  streakCount.value = 0
+  mistakeCount.value = 0
 
   if (scene) {
     const removals = tileMeshes()
@@ -525,11 +808,15 @@ const resetGame = () => {
   }
 
   spawnInitialRows()
+  saveState()
 }
 
 const triggerGameOver = () => {
   isGameOver.value = true
   statusMessage.value = 'The stack reached the danger line.'
+  recordEvent('fail_state', { score: score.value, bestCombo: bestCombo.value })
+  persistBest()
+  saveState()
 }
 
 const handleResize = () => {
@@ -548,10 +835,19 @@ const handleResize = () => {
 
 onMounted(async () => {
   await nextTick()
+  loadBest()
   if (!container.value) return
-  
+
+  setSeed('')
   initScene()
-  spawnInitialRows()
+  const restored = restoreState()
+  if (!restored) {
+    if (useDailySeed.value) {
+      applyDailySeed()
+    }
+    spawnInitialRows()
+    saveState()
+  }
 
   if (renderer) {
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
