@@ -408,16 +408,18 @@ const resetMaterials = (tile: TileData) => {
   material.opacity = 1
 }
 
-const createLetterTexture = (letter: string, background = activePalette.value.face, textColor = activePalette.value.text) => {
+const createLetterTexture = (letter: string, background?: string, textColor?: string) => {
+  const bgColor = background ?? activePalette.value.face
+  const txtColor = textColor ?? activePalette.value.text
   const size = 128
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
-  ctx.fillStyle = background
+  ctx.fillStyle = bgColor
   ctx.fillRect(0, 0, size, size)
-  ctx.fillStyle = textColor
+  ctx.fillStyle = txtColor
   ctx.font = 'bold 72px Inter, Arial, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'

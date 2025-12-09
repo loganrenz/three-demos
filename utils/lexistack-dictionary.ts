@@ -57,7 +57,10 @@ const openDatabase = (): Promise<IDBDatabase | null> => {
       }
     }
 
-    request.onerror = () => resolve(null)
+    request.onerror = () => {
+      console.warn('[lexistack] IndexedDB open failed:', request.error)
+      resolve(null)
+    }
     request.onsuccess = () => resolve(request.result)
   })
 }
