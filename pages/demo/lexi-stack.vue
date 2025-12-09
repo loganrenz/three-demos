@@ -98,7 +98,7 @@ definePageMeta({
 import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
 import * as THREE from 'three'
 import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
-import { isValidWord } from '@/utils/lexistack-dictionary'
+import { preloadDictionary, validateWord } from '@/utils/lexistack-dictionary'
 
 interface TileData {
   letter: string
@@ -169,6 +169,8 @@ const rowInterval = ref(START_INTERVAL)
 const timeUntilNextRow = ref(rowInterval.value)
 const isGameOver = ref(false)
 const statusMessage = ref('')
+const dictionaryLocale = ref('en-US')
+const isDictionaryReady = ref(false)
 
 const boardWidth = GRID_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP
 const boardHeight = GRID_ROWS_VISIBLE * (TILE_SIZE + TILE_GAP) - TILE_GAP
@@ -379,18 +381,32 @@ const clearSelection = () => {
   selectedTiles.value = []
 }
 
-const submitWord = () => {
+const submitWord = async () => {
   if (!selectedTiles.value.length || isGameOver.value) return
   const word = currentWord.value.toUpperCase()
-  if (word.length < 2) {
-    statusMessage.value = 'Select at least two letters.'
+
+  if (!isDictionaryReady.value) {
+    statusMessage.value = 'Loading dictionary... validation may be slower.'
+  }
+
+  let validation
+  try {
+    validation = await validateWord(word, {
+      locale: dictionaryLocale.value,
+      minLength: 2,
+      maxLength: 12
+    })
+  } catch (error) {
+    console.error('[lexistack] Dictionary lookup failed', error)
+    statusMessage.value = 'Dictionary unavailable. Check your connection and try again.'
+    comboMultiplier.value = 1
     flashTiles(selectedTiles.value)
     clearSelection()
     return
   }
 
-  if (!isValidWord(word)) {
-    statusMessage.value = `${word} is not in the dictionary.`
+  if (!validation.valid) {
+    statusMessage.value = validation.reason ?? 'That word is not allowed.'
     comboMultiplier.value = 1
     flashTiles(selectedTiles.value)
     clearSelection()
@@ -549,7 +565,16 @@ const handleResize = () => {
 onMounted(async () => {
   await nextTick()
   if (!container.value) return
-  
+
+  try {
+    await preloadDictionary(dictionaryLocale.value)
+    isDictionaryReady.value = true
+    statusMessage.value = 'Dictionary cached for offline play.'
+  } catch (error) {
+    console.warn('[lexistack] Unable to preload dictionary', error)
+    statusMessage.value = 'Dictionary could not cache offline; validation will attempt live lookups.'
+  }
+
   initScene()
   spawnInitialRows()
 
