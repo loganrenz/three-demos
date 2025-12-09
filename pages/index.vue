@@ -27,6 +27,11 @@ const demos = [
     path: '/demo/hydrogen-city'
   },
   {
+    title: 'Procedural Forest with Dynamic Weather',
+    description: 'A procedurally generated forest with wind animation, rain, fog, and falling leaves',
+    path: '/demo/forest-weather'
+  },
+  {
     title: 'LexiStack Word Tower',
     description: 'A rising grid word game that mixes Boggle with falling blocks',
     path: '/demo/lexi-stack'
