@@ -27,7 +27,7 @@
       <div v-show="showInfo" class="absolute top-3 left-3 z-10 bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
         <div class="text-[11px] uppercase tracking-[0.15em] text-gray-300">Next row</div>
         <div class="w-40 sm:w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
-          <div class="h-full bg-emerald-400 transition-all duration-200" :style="{ width: `${timerPercent}%` }"></div>
+          <div class="h-full transition-all duration-200" :style="{ width: `${timerPercent}%`, backgroundColor: activePalette.highlight }"></div>
         </div>
         <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
       </div>
@@ -60,6 +60,18 @@
           <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection" class="min-h-[44px]">
             Clear
           </UButton>
+          <UButton
+            variant="ghost"
+            size="sm"
+            :color="sfxEnabled ? 'emerald' : 'gray'"
+            :icon="sfxEnabled ? 'i-heroicons-speaker-wave' : 'i-heroicons-speaker-x-mark'"
+            class="min-h-[44px]"
+            :aria-pressed="sfxEnabled"
+            aria-label="Toggle sound effects"
+            @click="toggleSound"
+          >
+            {{ sfxEnabled ? 'Mute' : 'Unmute' }}
+          </UButton>
         </div>
       </div>
 
@@ -72,20 +84,150 @@
       </div>
     </div>
 
-    <details class="rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-200">
-      <summary class="cursor-pointer text-xs uppercase tracking-[0.15em] text-slate-300">How to play & tips</summary>
-      <div class="mt-3 space-y-2">
-        <p>Connect adjacent letters to form words. Enter or Submit clears them and drops the tower.</p>
-        <p class="text-slate-400">Each cleared word slows the next row timer; longer words boost the combo multiplier.</p>
-        <ul class="list-disc list-inside space-y-1">
-          <li>Diagonal chains are allowed.</li>
-          <li>Keep an eye on the timer bar — it is your breathing room.</li>
-          <li>Small clears buy time; long words push your streak.</li>
-        </ul>
-      </div>
-    </details>
+    <div class="flex flex-wrap items-center gap-3">
+      <UButton color="emerald" variant="soft" icon="i-heroicons-academic-cap" @click="openTutorial" class="min-h-[44px]">
+        Open tutorial
+      </UButton>
+      <UButton
+        variant="outline"
+        color="gray"
+        icon="i-heroicons-sparkles"
+        :aria-pressed="colorblindMode"
+        class="min-h-[44px]"
+        @click="toggleColorblind"
+      >
+        {{ colorblindMode ? 'Colorblind palette on' : 'Colorblind palette off' }}
+      </UButton>
+      <UButton
+        variant="outline"
+        color="gray"
+        icon="i-heroicons-adjustments-horizontal"
+        :aria-pressed="highContrastMode"
+        class="min-h-[44px]"
+        @click="toggleHighContrast"
+      >
+        {{ highContrastMode ? 'High contrast on' : 'High contrast off' }}
+      </UButton>
+    </div>
 
-    <p v-if="statusMessage" class="text-sm text-emerald-200/80">{{ statusMessage }}</p>
+    <transition name="fade">
+      <div
+        v-if="showTutorial"
+        class="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur"
+        role="dialog"
+        aria-modal="true"
+        aria-label="LexiStack tutorial"
+      >
+        <div class="max-w-3xl w-[94vw] rounded-2xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl space-y-4 overflow-y-auto max-h-[90vh]">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <p class="text-[11px] uppercase tracking-[0.2em] text-emerald-300">Guided overlay</p>
+              <h3 class="text-xl font-semibold">How to play</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <UTooltip text="Keyboard friendly: Enter submits" placement="bottom">
+                <UBadge color="gray" variant="soft">Keyboard</UBadge>
+              </UTooltip>
+              <UButton variant="ghost" icon="i-heroicons-x-mark" aria-label="Close tutorial" @click="closeTutorial" />
+            </div>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-3 text-sm text-slate-200">
+            <div class="rounded-xl border border-white/10 bg-black/40 p-3 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                <p class="font-semibold">Select connected letters</p>
+              </div>
+              <p class="text-slate-400">Click or tap adjacent cubes; diagonals count. Backtrack by tapping an active tile.</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/40 p-3 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-amber-300"></span>
+                <p class="font-semibold">Submit or clear</p>
+              </div>
+              <p class="text-slate-400">Enter or the Submit button locks the word, slows the next row timer, and bumps your combo.</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/40 p-3 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-rose-400"></span>
+                <p class="font-semibold">Watch the danger line</p>
+              </div>
+              <p class="text-slate-400">Keep the stack under the rim. Row timer pulses and a danger chime will warn you.</p>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <p class="text-[11px] uppercase tracking-[0.2em] text-emerald-300">Quick demo</p>
+                <p class="text-sm text-slate-200">Follow the path to feel the flow.</p>
+              </div>
+              <UButton size="xs" variant="soft" color="emerald" icon="i-heroicons-play" @click="startQuickDemo">Replay</UButton>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center" aria-label="Demo tiles">
+              <div
+                v-for="(tile, index) in demoTiles"
+                :key="tile.letter + index"
+                class="relative rounded-lg border border-emerald-400/40 bg-slate-950/60 px-3 py-4 font-semibold"
+              >
+                <span :class="demoActiveIndex === index ? 'text-emerald-300' : 'text-slate-200'">{{ tile.letter }}</span>
+                <div v-if="demoActiveIndex === index" class="absolute inset-0 rounded-lg ring-2 ring-emerald-400/80 animate-pulse" />
+                <UTooltip :text="tile.tip" placement="top">
+                  <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-emerald-200 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-400/40">Tip</span>
+                </UTooltip>
+              </div>
+            </div>
+            <p class="text-xs text-emerald-200">The demo auto-focuses the tiles to show a valid chain you can mirror in the arena.</p>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2 text-sm text-slate-200">
+            <div class="rounded-xl border border-white/10 bg-black/40 p-3 space-y-2">
+              <p class="text-[11px] uppercase tracking-[0.15em] text-slate-300">Navigation</p>
+              <ul class="list-disc list-inside space-y-1 text-slate-400">
+                <li>Tab through controls, Enter submits, and Escape closes this overlay.</li>
+                <li>Focus order keeps tower actions first, followed by accessibility toggles.</li>
+                <li>Use the sound button to mute chimes; preferences persist.</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/40 p-3 space-y-2">
+              <p class="text-[11px] uppercase tracking-[0.15em] text-slate-300">Visual support</p>
+              <ul class="list-disc list-inside space-y-1 text-slate-400">
+                <li>Colorblind palette swaps in color-safe hues for selection and danger.</li>
+                <li>High-contrast mode boosts edges, text, and the timer bar.</li>
+                <li>Tooltips surface hints on hover or focus for demo tiles.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div
+        v-if="idleTip"
+        class="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 flex items-start gap-2"
+        role="status"
+      >
+        <span aria-hidden="true">💡</span>
+        <div>{{ idleTip }}</div>
+      </div>
+    </transition>
+
+    <div class="space-y-2" aria-live="polite" role="status">
+      <p v-if="statusMessage" class="text-sm text-emerald-200/80">{{ statusMessage }}</p>
+      <transition-group name="toast" tag="div" class="space-y-2">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="rounded-lg border border-white/10 bg-slate-900/80 px-3 py-2 text-sm shadow-lg flex items-center justify-between gap-3"
+        >
+          <span :class="toast.intent === 'danger' ? 'text-rose-200' : toast.intent === 'success' ? 'text-emerald-100' : 'text-slate-200'">
+            {{ toast.message }}
+          </span>
+          <button class="text-xs text-slate-400 hover:text-white" @click="dismissToast(toast.id)">Dismiss</button>
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
@@ -95,7 +237,7 @@ definePageMeta({
   layout: 'demo'
 })
 
-import { onMounted, onUnmounted, ref, computed, nextTick, markRaw } from 'vue'
+import { onMounted, onUnmounted, ref, computed, nextTick, markRaw, watch } from 'vue'
 import * as THREE from 'three'
 import { isAdjacentPosition, scoreWord } from '@/utils/lexistack-logic'
 import { preloadDictionary, validateWord } from '@/utils/lexistack-dictionary'
@@ -158,15 +300,22 @@ const container = ref<HTMLDivElement | null>(null)
 let scene: THREE.Scene | null = null
 let camera: THREE.OrthographicCamera | null = null
 let renderer: THREE.WebGLRenderer | null = null
+let basePlate: THREE.Mesh | null = null
 const raycaster = markRaw(new THREE.Raycaster())
 const pointer = markRaw(new THREE.Vector2())
 const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
+let handleVisibility: (() => void) | null = null
+let handleContextLoss: ((event: Event) => void) | null = null
+let handleContextRestore: (() => void) | null = null
 
 const featureFlags = useFeatureFlags()
 const diagnostics = useRuntimeDiagnostics(computed(() => featureFlags.value.debugPanel))
 
 const showInfo = ref(false)
+const webglSupported = ref(true)
+const renderError = ref('')
+const isDictionaryReady = ref(false)
 const grid = ref<Array<Array<TileData | null>>>([])
 const selectedTiles = ref<TileData[]>([])
 const score = ref(0)
@@ -176,10 +325,31 @@ const rowInterval = ref(START_INTERVAL)
 const timeUntilNextRow = ref(rowInterval.value)
 const isGameOver = ref(false)
 const statusMessage = ref('')
-const dictionaryLocale = ref('en-US')
-const isDictionaryReady = ref(false)
-const webglSupported = ref(true)
-const renderError = ref('')
+const showTutorial = ref(false)
+const colorblindMode = ref(false)
+const highContrastMode = ref(false)
+const sfxEnabled = ref(true)
+const idleTip = ref('')
+const lastInteraction = ref(Date.now())
+const demoTiles = ref([
+  { letter: 'L', tip: 'Start low for stability.' },
+  { letter: 'E', tip: 'Diagonal connections are valid.' },
+  { letter: 'X', tip: 'Aim for longer chains to boost combo.' },
+  { letter: 'I', tip: 'Keep the timer bar in view.' },
+  { letter: 'S', tip: 'Submit before the rim fills.' },
+  { letter: 'T', tip: 'Backtrack by tapping a selected cube.' },
+  { letter: 'A', tip: 'Switch palettes if colors blur.' },
+  { letter: 'C', tip: 'High contrast helps in bright rooms.' },
+  { letter: 'K', tip: 'Mute chimes when you need silence.' }
+])
+const demoActiveIndex = ref<number | null>(null)
+
+const toasts = ref<Array<{ id: number; message: string; intent?: 'success' | 'danger' | 'info' }>>([])
+const lowTimerWarned = ref(false)
+let toastId = 0
+let idleInterval: number | null = null
+let demoInterval: number | null = null
+let audioContext: AudioContext | null = null
 
 const boardWidth = GRID_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP
 const boardHeight = GRID_ROWS_VISIBLE * (TILE_SIZE + TILE_GAP) - TILE_GAP
@@ -187,10 +357,41 @@ const boardOriginY = -boardHeight / 2
 
 const timerPercent = computed(() => Math.max(0, Math.min(100, (timeUntilNextRow.value / rowInterval.value) * 100)))
 const currentWord = computed(() => selectedTiles.value.map((tile) => tile.letter).join(''))
-const formattedMemory = computed(() => {
-  if (!diagnostics.memory.value) return '—'
-  const mb = diagnostics.memory.value / 1024 / 1024
-  return `${mb.toFixed(1)} MB`
+
+const basePalette = {
+  tile: '#cbd5f5',
+  emissive: '#0ea5e9',
+  face: '#0f172a',
+  text: '#e5e7eb',
+  highlight: '#67e8f9',
+  flash: '#f97316',
+  background: '#0b1021'
+}
+
+const colorblindPalettePreset = {
+  tile: '#f2f4f7',
+  emissive: '#3b82f6',
+  face: '#0b1b2b',
+  text: '#111827',
+  highlight: '#f59e0b',
+  flash: '#ef4444',
+  background: '#0a0f1a'
+}
+
+const highContrastPalettePreset = {
+  tile: '#ffffff',
+  emissive: '#22d3ee',
+  face: '#020617',
+  text: '#000000',
+  highlight: '#22d3ee',
+  flash: '#f97316',
+  background: '#000000'
+}
+
+const activePalette = computed(() => {
+  if (highContrastMode.value) return highContrastPalettePreset
+  if (colorblindMode.value) return colorblindPalettePreset
+  return basePalette
 })
 
 const tileMeshes = () => {
@@ -202,12 +403,12 @@ const getTileX = (col: number) => (col - (GRID_COLS - 1) / 2) * (TILE_SIZE + TIL
 
 const resetMaterials = (tile: TileData) => {
   const material = tile.mesh.material as THREE.MeshStandardMaterial
-  material.color.set('#cbd5f5')
-  material.emissive.set('#0ea5e9')
+  material.color.set(activePalette.value.tile)
+  material.emissive.set(activePalette.value.emissive)
   material.opacity = 1
 }
 
-const createLetterTexture = (letter: string, background = '#0f172a', textColor = '#e5e7eb') => {
+const createLetterTexture = (letter: string, background = activePalette.value.face, textColor = activePalette.value.text) => {
   const size = 128
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -228,8 +429,8 @@ const createTile = (letter: string, row: number, col: number, startY?: number): 
   const geometry = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.4)
   const texture = createLetterTexture(letter)
   const material = new THREE.MeshStandardMaterial({
-    color: '#cbd5f5',
-    emissive: '#0ea5e9',
+    color: activePalette.value.tile,
+    emissive: activePalette.value.emissive,
     metalness: 0.05,
     roughness: 0.5,
     map: texture ?? undefined,
@@ -239,7 +440,7 @@ const createTile = (letter: string, row: number, col: number, startY?: number): 
   mesh.position.set(getTileX(col), startY ?? getTileY(row), 0)
   mesh.castShadow = true
   mesh.receiveShadow = true
-  mesh.userData = { row, col }
+  mesh.userData = { row, col, letter }
   return { letter, mesh, row, col, targetY: getTileY(row), removing: false, removeTimer: 0.3, flashTimer: 0 }
 }
 
@@ -257,7 +458,7 @@ const getRandomLetter = () => {
 const initScene = () => {
   if (!container.value) return
   scene = markRaw(new THREE.Scene())
-  scene.background = new THREE.Color('#0b1021')
+  scene.background = new THREE.Color(activePalette.value.background)
 
   const width = container.value.clientWidth
   const height = container.value.clientHeight
@@ -281,10 +482,10 @@ const initScene = () => {
   scene.add(dir)
 
   const planeGeo = new THREE.PlaneGeometry(boardWidth * 1.2, boardHeight * 1.4)
-  const planeMat = new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: 0.75 })
-  const base = new THREE.Mesh(planeGeo, planeMat)
-  base.position.set(0, boardOriginY + boardHeight / 2, -1)
-  scene.add(base)
+  const planeMat = new THREE.MeshBasicMaterial({ color: activePalette.value.face, transparent: true, opacity: 0.75 })
+  basePlate = new THREE.Mesh(planeGeo, planeMat)
+  basePlate.position.set(0, boardOriginY + boardHeight / 2, -1)
+  scene.add(basePlate)
 }
 
 const spawnInitialRows = () => {
@@ -328,10 +529,12 @@ const addNewRow = () => {
 
   rowInterval.value = Math.max(MIN_INTERVAL, rowInterval.value - INTERVAL_DECREASE)
   timeUntilNextRow.value = rowInterval.value
+  lowTimerWarned.value = false
 }
 
 const handlePointerDown = (event: PointerEvent) => {
   if (!renderer || !camera || !scene || isGameOver.value) return
+  recordInteraction()
   const rect = renderer.domElement.getBoundingClientRect()
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -369,15 +572,18 @@ const toggleTileSelection = (tile: TileData) => {
   const last = selectedTiles.value[selectedTiles.value.length - 1]
   if (last && !isAdjacentPosition(last, tile)) {
     statusMessage.value = 'Tiles must be adjacent.'
+    pushToast('Tiles must be adjacent.', 'danger')
+    playTone(240, 0.1, 'sawtooth')
     flashTiles([tile])
     return
   }
 
   selectedTiles.value.push(tile)
   const material = tile.mesh.material as THREE.MeshStandardMaterial
-  material.color.set('#67e8f9')
+  material.color.set(activePalette.value.highlight)
   material.emissive.set('#22d3ee')
   tile.mesh.scale.setScalar(1.08)
+  playTone(520, 0.08, 'triangle')
   statusMessage.value = ''
 }
 
@@ -397,16 +603,19 @@ const clearSelection = () => {
 
 const submitWord = async () => {
   if (!selectedTiles.value.length || isGameOver.value) return
+  recordInteraction()
   const word = currentWord.value.toUpperCase()
-
-  if (!isDictionaryReady.value) {
-    statusMessage.value = 'Loading dictionary... validation may be slower.'
+  if (word.length < 2) {
+    statusMessage.value = 'Select at least two letters.'
+    flashTiles(selectedTiles.value)
+    clearSelection()
+    return
   }
 
   let validation
   try {
     validation = await validateWord(word, {
-      locale: dictionaryLocale.value,
+      locale: 'en-US',
       minLength: 2,
       maxLength: 12
     })
@@ -433,6 +642,8 @@ const submitWord = async () => {
   comboMultiplier.value = Math.min(5, comboMultiplier.value + 0.1)
   bestCombo.value = Math.max(bestCombo.value, comboMultiplier.value)
   statusMessage.value = `Cleared ${word}! +${total} points`
+  pushToast(`Cleared ${word}! +${total} points`, 'success')
+  playTone(880, 0.12, 'sine')
 
   for (const tile of selectedTiles.value) {
     tile.removing = true
@@ -446,6 +657,7 @@ const submitWord = async () => {
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter') {
+    recordInteraction()
     submitWord()
   }
 }
@@ -534,6 +746,7 @@ const update = () => {
 }
 
 const resetGame = () => {
+  recordInteraction()
   statusMessage.value = ''
   selectedTiles.value = []
   score.value = 0
@@ -560,6 +773,8 @@ const resetGame = () => {
 const triggerGameOver = () => {
   isGameOver.value = true
   statusMessage.value = 'The stack reached the danger line.'
+  pushToast('The stack reached the danger line — clear space!', 'danger')
+  playTone(160, 0.35, 'square')
 }
 
 const handleResize = () => {
@@ -576,12 +791,179 @@ const handleResize = () => {
   renderer.setSize(width, height)
 }
 
+const pushToast = (message: string, intent: 'success' | 'danger' | 'info' = 'info') => {
+  const id = ++toastId
+  toasts.value.push({ id, message, intent })
+  setTimeout(() => dismissToast(id), 4000)
+}
+
+const dismissToast = (id: number) => {
+  toasts.value = toasts.value.filter((toast) => toast.id !== id)
+}
+
+const toggleSound = () => {
+  sfxEnabled.value = !sfxEnabled.value
+  localStorage.setItem('lexi-sfx', sfxEnabled.value ? 'on' : 'off')
+}
+
+const toggleColorblind = () => {
+  colorblindMode.value = !colorblindMode.value
+  localStorage.setItem('lexi-colorblind', colorblindMode.value ? 'on' : 'off')
+  updatePalette()
+}
+
+const toggleHighContrast = () => {
+  highContrastMode.value = !highContrastMode.value
+  localStorage.setItem('lexi-contrast', highContrastMode.value ? 'on' : 'off')
+  updatePalette()
+}
+
+const updatePalette = () => {
+  if (scene) {
+    scene.background = new THREE.Color(activePalette.value.background)
+  }
+  if (basePlate) {
+    const baseMaterial = basePlate.material as THREE.MeshBasicMaterial
+    baseMaterial.color.set(activePalette.value.face)
+    baseMaterial.needsUpdate = true
+  }
+  for (const tile of tileMeshes()) {
+    const material = tile.material as THREE.MeshStandardMaterial
+    material.color.set(activePalette.value.tile)
+    material.emissive.set(activePalette.value.emissive)
+    if (material.map) material.map.dispose()
+    material.map = createLetterTexture(tile.userData.letter ?? 'A') ?? undefined
+    material.needsUpdate = true
+    const isSelected = selectedTiles.value.some((selected) => selected.row === tile.userData.row && selected.col === tile.userData.col)
+    if (isSelected) {
+      material.color.set(activePalette.value.highlight)
+      material.emissive.set('#22d3ee')
+    }
+  }
+}
+
+const watchPalette = () => {
+  watch(activePalette, () => updatePalette(), { immediate: true })
+}
+
+const restorePreferences = () => {
+  sfxEnabled.value = localStorage.getItem('lexi-sfx') !== 'off'
+  colorblindMode.value = localStorage.getItem('lexi-colorblind') === 'on'
+  highContrastMode.value = localStorage.getItem('lexi-contrast') === 'on'
+}
+
+const playTone = (frequency: number, duration: number, type: OscillatorType) => {
+  if (!sfxEnabled.value) return
+  if (!audioContext) audioContext = new AudioContext()
+  const ctx = audioContext
+  const oscillator = ctx.createOscillator()
+  const gain = ctx.createGain()
+  oscillator.type = type
+  oscillator.frequency.value = frequency
+  gain.gain.setValueAtTime(0.2, ctx.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+  oscillator.connect(gain)
+  gain.connect(ctx.destination)
+  oscillator.start()
+  oscillator.stop(ctx.currentTime + duration)
+}
+
+const recordInteraction = () => {
+  lastInteraction.value = Date.now()
+  idleTip.value = ''
+}
+
+const startIdleWatcher = () => {
+  const tips = [
+    'Try diagonal chains for more options.',
+    'Short words keep the timer in check; long ones boost combos.',
+    'Toggle palettes if the colors clash with your environment.'
+  ]
+  idleInterval = window.setInterval(() => {
+    if (Date.now() - lastInteraction.value > 15000 && !showTutorial.value && !isGameOver.value) {
+      const nextTip = tips[(Math.floor(Date.now() / 15000)) % tips.length]
+      idleTip.value = nextTip
+    }
+  }, 2000)
+}
+
+const openTutorial = () => {
+  showTutorial.value = true
+  demoActiveIndex.value = null
+  recordInteraction()
+  startQuickDemo()
+}
+
+const closeTutorial = () => {
+  showTutorial.value = false
+  demoActiveIndex.value = null
+  if (demoInterval) {
+    clearInterval(demoInterval)
+    demoInterval = null
+  }
+}
+
+const startQuickDemo = () => {
+  if (demoInterval) {
+    clearInterval(demoInterval)
+    demoInterval = null
+  }
+  demoActiveIndex.value = 0
+  let index = 0
+  demoInterval = window.setInterval(() => {
+    demoActiveIndex.value = index
+    index = (index + 1) % demoTiles.value.length
+  }, 600)
+}
+
+const handleGlobalKeys = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && showTutorial.value) {
+    closeTutorial()
+  }
+  if (event.key === 't' && !showTutorial.value) {
+    openTutorial()
+  }
+}
+
+watch(
+  () => timeUntilNextRow.value,
+  (value) => {
+    if (value < rowInterval.value * 0.25 && !isGameOver.value && !lowTimerWarned.value) {
+      lowTimerWarned.value = true
+      pushToast('Timer is running low — submit a quick word!', 'info')
+      playTone(420, 0.08, 'sine')
+    }
+    if (value >= rowInterval.value * 0.6) {
+      lowTimerWarned.value = false
+    }
+  }
+)
+
+watch(
+  () => selectedTiles.value.length,
+  (length) => {
+    if (length) recordInteraction()
+  }
+)
+
+watch(
+  () => showTutorial.value,
+  (open) => {
+    if (!open && demoInterval) {
+      clearInterval(demoInterval)
+      demoInterval = null
+    }
+  }
+)
+
 onMounted(async () => {
   await nextTick()
-  if (!container.value) return
+  webglSupported.value = isWebGLAvailable()
+  if (!container.value || !webglSupported.value) return
 
+  // Preload dictionary
   try {
-    await preloadDictionary(dictionaryLocale.value)
+    await preloadDictionary('en-US')
     isDictionaryReady.value = true
     statusMessage.value = 'Dictionary cached for offline play.'
   } catch (error) {
@@ -592,6 +974,12 @@ onMounted(async () => {
   initScene()
   spawnInitialRows()
 
+  restorePreferences()
+  watchPalette()
+  startIdleWatcher()
+
+  document.addEventListener('keydown', handleGlobalKeys)
+
   if (renderer) {
     renderer.domElement.addEventListener('pointerdown', handlePointerDown)
   }
@@ -600,18 +988,77 @@ onMounted(async () => {
 
   clock.start()
   update()
+  
+  // Set up visibility change handler
+  handleVisibility = () => {
+    if (document.hidden) {
+      disposeScene()
+    } else if (!animationId && !renderError.value) {
+      initScene()
+      spawnInitialRows()
+      if (renderer) {
+        renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+      }
+      clock.start()
+      update()
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibility)
 })
 
-onUnmounted(() => {
+const disposeScene = () => {
   if (animationId) {
     cancelAnimationFrame(animationId)
     animationId = null
   }
   if (renderer) {
     renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+    if (handleContextLoss) {
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLoss)
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestore || handleContextLoss)
+      handleContextLoss = null
+      handleContextRestore = null
+    }
   }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
+  
+  if (scene) {
+    const meshes = tileMeshes()
+    for (const mesh of meshes) {
+      mesh.geometry.dispose()
+      if (mesh.material instanceof THREE.Material) {
+        mesh.material.dispose()
+      }
+    }
+    if (basePlate) {
+      scene.remove(basePlate)
+      basePlate.geometry.dispose()
+      if (basePlate.material && basePlate.material instanceof THREE.Material) {
+        basePlate.material.dispose()
+      }
+      basePlate = null
+    }
+  }
+  
+  if (renderer && container.value && renderer.domElement.parentNode) {
+    container.value.removeChild(renderer.domElement)
+    renderer.dispose()
+    renderer.forceContextLoss()
+    renderer = null
+  }
+  
+  scene = null
+  camera = null
+}
+
+onUnmounted(() => {
+  disposeScene()
+  document.removeEventListener('keydown', handleGlobalKeys)
+  if (handleVisibility) {
+    document.removeEventListener('visibilitychange', handleVisibility)
+    handleVisibility = null
+  }
 
   if (scene) {
     const meshes = tileMeshes()
@@ -622,6 +1069,14 @@ onUnmounted(() => {
         mesh.material.dispose()
       }
     }
+    if (basePlate) {
+      scene.remove(basePlate)
+      basePlate.geometry.dispose()
+      if (basePlate.material && basePlate.material instanceof THREE.Material) {
+        basePlate.material.dispose()
+      }
+      basePlate = null
+    }
   }
 
   if (renderer) {
@@ -631,8 +1086,17 @@ onUnmounted(() => {
     renderer.dispose()
     renderer = null
   }
-  
+
   scene = null
   camera = null
+
+  if (idleInterval) {
+    clearInterval(idleInterval)
+    idleInterval = null
+  }
+  if (demoInterval) {
+    clearInterval(demoInterval)
+    demoInterval = null
+  }
 })
 </script>
