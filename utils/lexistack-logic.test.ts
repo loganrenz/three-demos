@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidWord } from './lexistack-dictionary'
+import { validateWord } from './lexistack-dictionary'
 import { LETTER_SCORES, isAdjacentPosition, scoreWord } from './lexistack-logic'
 
 describe('lexistack logic helpers', () => {
@@ -24,8 +24,10 @@ describe('lexistack logic helpers', () => {
     expect(scoreWord(['a', 'p', 'e'], 1)).toBe(Math.round((1 + 3 + 1) * 1.3))
   })
 
-  it('confirms dictionary lookups are case-insensitive', () => {
-    expect(isValidWord('apple')).toBe(true)
-    expect(isValidWord('NotAWord')).toBe(false)
+  it('confirms dictionary lookups are case-insensitive', async () => {
+    const valid = await validateWord('apple')
+    const invalid = await validateWord('NotAWord')
+    expect(valid.valid).toBe(true)
+    expect(invalid.valid).toBe(false)
   })
 })
