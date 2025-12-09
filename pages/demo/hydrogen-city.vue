@@ -328,13 +328,17 @@ onMounted(() => {
 
   // Animation loop
   let lastFrameTime = 0
+  let animationTime = 0
   const animate = () => {
     animationId = requestAnimationFrame(animate)
     if (!clock || !scene || !camera || !renderer || !cameraController || !composer) return
 
     const currentTime = clock.getElapsedTime()
     const deltaTime = isPaused.value ? 0 : (currentTime - lastFrameTime) * timeScale.value
-    const time = isPaused.value ? lastFrameTime : currentTime * timeScale.value
+    if (!isPaused.value) {
+      animationTime += deltaTime
+    }
+    const time = animationTime
     lastFrameTime = currentTime
 
     // Update camera
@@ -345,6 +349,11 @@ onMounted(() => {
       const vein = veins[i]
       updateVeinFlow(vein, time, pulseSpeed.value)
       vein.tube.visible = showVeins.value || visualizationMode.value === 'underground'
+      
+      // Update shader material time uniform
+      if (vein.material instanceof THREE.ShaderMaterial) {
+        vein.material.uniforms.time.value = time * pulseSpeed.value
+      }
       
       // Update vein particles
       if (veinParticles[i]) {
@@ -375,7 +384,9 @@ onMounted(() => {
       if (building.isEnergized && !wasEnergized) {
         building.lastEnergizedTime = time
         // Create energy ripple
-        createEnergyRipple(building.position.x, building.position.z, time)
+        if (scene) {
+          createEnergyRipple(building.position.x, building.position.z, time)
+        }
         // Create building sparks
         const sparks = createBuildingSparks(building.position, 15)
         scene.add(sparks)
@@ -441,13 +452,16 @@ onMounted(() => {
   }
   
   function updateEnergyRipples(time: number): void {
+    if (!scene) return
     scene.children.forEach((child) => {
-      if (child.userData.startTime !== undefined) {
+      if (child instanceof THREE.Mesh && child.userData.startTime !== undefined) {
         const elapsed = time - child.userData.startTime
         const progress = Math.min(1, elapsed / 2)
         const scale = progress * child.userData.maxRadius
         child.scale.setScalar(scale)
-        ;(child.material as THREE.MeshStandardMaterial).opacity = 0.8 * (1 - progress)
+        if (child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.opacity = 0.8 * (1 - progress)
+        }
       }
     })
   }
@@ -491,17 +505,24 @@ onMounted(() => {
 
 watch(showVeins, (value) => {
   for (const vein of veins) {
-    vein.tube.visible = value
+    vein.tube.visible = value || visualizationMode.value === 'underground'
+  }
+  for (const particleSystem of veinParticles) {
+    particleSystem.points.visible = value || visualizationMode.value === 'underground'
   }
 })
+
+watch(visualizationMode, (value) => {
+  onViewModeChange()
+})
+
+const cameraPresets = ref<Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }>>([])
 
 const replayFlythrough = () => {
   if (cameraController) {
     cameraController.replayIntro()
   }
 }
-
-const cameraPresets = ref<Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }>>([])
 
 const jumpToCameraPreset = (index: number) => {
   if (cameraController) {
@@ -511,20 +532,13 @@ const jumpToCameraPreset = (index: number) => {
 
 const onViewModeChange = () => {
   if (cameraController && visualizationMode.value === 'underground') {
-    cameraController.toggleUndergroundView()
+    if (!cameraController.undergroundView) {
+      cameraController.toggleUndergroundView()
+    }
   } else if (cameraController && visualizationMode.value !== 'underground' && cameraController.undergroundView) {
     cameraController.toggleUndergroundView()
   }
 }
-
-onMounted(() => {
-  // ... existing code ...
-  
-  // Get camera presets after controller is created
-  if (cameraController) {
-    cameraPresets.value = cameraController.getPresets()
-  }
-})
 
 onUnmounted(() => {
   if (animationId) {

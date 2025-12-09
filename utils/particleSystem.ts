@@ -18,8 +18,6 @@ export function createVeinParticles(
   const lifetimes = new Float32Array(count)
   const colors = new Float32Array(count * 3)
   
-  const points = vein.curve.getPoints(200)
-  
   for (let i = 0; i < count; i++) {
     const t = Math.random()
     const point = vein.curve.getPointAt(t)

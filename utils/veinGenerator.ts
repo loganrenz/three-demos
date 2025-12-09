@@ -42,22 +42,12 @@ export function generateVeins(
     const curve = new THREE.CatmullRomCurve3(points)
     const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.8, 8, false)
     
-    // Enhanced material with better glow
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x00ffff,
-      emissive: 0x00ffff,
-      transparent: true,
-      opacity: 0.7,
-      side: THREE.DoubleSide,
-      emissiveIntensity: 1.5
-    })
-    
-    // Add depth-based glow effect using custom shader material
+    // Enhanced shader material with animated flow and depth-based glow
     const shaderMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
-        depth: { value: depth },
-        color: { value: new THREE.Color(0x00ffff) }
+        color: { value: new THREE.Color(0x00ffff) },
+        depth: { value: depth }
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -70,16 +60,24 @@ export function generateVeins(
       `,
       fragmentShader: `
         uniform float time;
-        uniform float depth;
         uniform vec3 color;
+        uniform float depth;
         varying vec3 vPosition;
         varying float vDepth;
         void main() {
+          // Depth-based intensity (closer to surface = brighter)
           float depthFactor = 1.0 - abs(vDepth - depth) / 5.0;
-          depthFactor = clamp(depthFactor, 0.3, 1.0);
-          vec3 finalColor = color * depthFactor;
-          float pulse = sin(time * 2.0 + vPosition.x * 0.1) * 0.1 + 0.9;
-          gl_FragColor = vec4(finalColor * pulse, 0.7 * depthFactor);
+          depthFactor = clamp(depthFactor, 0.4, 1.0);
+          
+          // Animated pulse along the vein
+          float pulse = sin(time * 2.0 + vPosition.x * 0.2 + vPosition.z * 0.2) * 0.15 + 0.85;
+          
+          // Flow effect
+          float flow = sin(time * 1.5 + length(vPosition) * 0.1) * 0.1 + 0.9;
+          
+          vec3 finalColor = color * depthFactor * pulse * flow;
+          float alpha = 0.7 * depthFactor;
+          gl_FragColor = vec4(finalColor, alpha);
         }
       `,
       transparent: true,
