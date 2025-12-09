@@ -1,0 +1,21 @@
+{
+  "name": "three-demos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^2.18.0",
+    "nuxt": "^4.0.0",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest"
+  }
+}
+
