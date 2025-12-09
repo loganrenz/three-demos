@@ -12,10 +12,19 @@
       </div>
     </div>
 
-    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[420px] overflow-hidden">
+    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[360px] sm:min-h-[420px] overflow-hidden">
       <div ref="container" class="absolute inset-0"></div>
 
+      <button
+        @click="showControls = !showControls"
+        class="absolute top-3 right-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur transition hover:bg-slate-800/90 md:top-4 md:right-4"
+        aria-label="Toggle controls"
+      >
+        <span class="text-lg">{{ showControls ? '×' : '⚙' }}</span>
+      </button>
+
       <div
+        v-show="showControls"
         class="absolute inset-x-3 bottom-3 z-10 grid gap-3 rounded-xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur md:inset-auto md:top-4 md:right-4 md:w-72 md:p-4"
       >
         <div class="flex items-center justify-between text-sm">
@@ -56,18 +65,18 @@
         </div>
 
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <UButton @click="isPaused = !isPaused" :variant="isPaused ? 'solid' : 'outline'" size="xs" class="w-full">
+          <UButton @click="isPaused = !isPaused" :variant="isPaused ? 'solid' : 'outline'" size="xs" class="w-full min-h-[44px]">
             {{ isPaused ? 'Play' : 'Pause' }}
           </UButton>
-          <UButton @click="timeScale = 1.0" variant="ghost" size="xs" class="w-full">Reset</UButton>
+          <UButton @click="timeScale = 1.0" variant="ghost" size="xs" class="w-full min-h-[44px]">Reset</UButton>
         </div>
 
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <label class="flex items-center gap-2 text-slate-200">
-            <input v-model="showVeins" type="checkbox" class="accent-cyan-400" />
+          <label class="flex items-center gap-2 text-slate-200 min-h-[44px]">
+            <input v-model="showVeins" type="checkbox" class="accent-cyan-400 w-5 h-5" />
             <span>Show veins</span>
           </label>
-          <UButton @click="replayFlythrough" variant="outline" size="xs" class="w-full">Flythrough</UButton>
+          <UButton @click="replayFlythrough" variant="outline" size="xs" class="w-full min-h-[44px]">Flythrough</UButton>
         </div>
 
         <div class="flex flex-wrap gap-2 text-xs text-slate-200">
@@ -78,7 +87,7 @@
             @click="jumpToCameraPreset(index)"
             variant="ghost"
             size="xs"
-            class="flex-1 min-w-[120px]"
+            class="flex-1 min-h-[44px]"
           >
             {{ preset.name }}
           </UButton>
@@ -104,6 +113,7 @@ import { CameraController } from '@/utils/cameraController'
 import { createVeinParticles, createBuildingSparks, updateVeinParticles, type ParticleSystem } from '@/utils/particleSystem'
 
 const container = ref<HTMLDivElement | null>(null)
+const showControls = ref(false)
 const pulseSpeed = ref(1.0)
 const glowIntensity = ref(1.5)
 const showVeins = ref(true)
@@ -639,28 +649,31 @@ onUnmounted(() => {
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
+  height: 8px;
   background: #374151;
-  border-radius: 3px;
+  border-radius: 4px;
   outline: none;
+  touch-action: none;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   background: #00ffff;
   border-radius: 50%;
   cursor: pointer;
+  touch-action: none;
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   background: #00ffff;
   border-radius: 50%;
   cursor: pointer;
+  touch-action: none;
   border: none;
 }
 </style>

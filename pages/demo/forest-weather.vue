@@ -12,10 +12,19 @@
       </div>
     </div>
 
-    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[420px] overflow-hidden">
+    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[360px] sm:min-h-[420px] overflow-hidden">
       <div ref="container" class="absolute inset-0"></div>
 
+      <button
+        @click="showControls = !showControls"
+        class="absolute top-3 right-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-slate-900/90 backdrop-blur transition hover:bg-slate-800/90 md:top-4 md:right-4"
+        aria-label="Toggle controls"
+      >
+        <span class="text-lg">{{ showControls ? '×' : '⚙' }}</span>
+      </button>
+
       <div
+        v-show="showControls"
         class="absolute inset-x-3 bottom-3 z-10 grid gap-3 rounded-xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur md:inset-auto md:top-4 md:right-4 md:w-72 md:p-4"
       >
         <div class="grid grid-cols-2 gap-3 text-xs text-slate-200">
@@ -49,21 +58,21 @@
         </div>
 
         <div class="flex items-center justify-between text-xs text-slate-200">
-          <label class="flex items-center gap-2">
-            <input v-model="autoTime" type="checkbox" class="accent-emerald-400" />
+          <label class="flex items-center gap-2 min-h-[44px]">
+            <input v-model="autoTime" type="checkbox" class="accent-emerald-400 w-5 h-5" />
             Auto cycle
           </label>
-          <label class="flex items-center gap-2">
-            <input v-model="showLeaves" type="checkbox" class="accent-emerald-400" />
+          <label class="flex items-center gap-2 min-h-[44px]">
+            <input v-model="showLeaves" type="checkbox" class="accent-emerald-400 w-5 h-5" />
             Leaves
           </label>
         </div>
 
         <div class="grid grid-cols-2 gap-2 text-xs text-slate-200">
-          <UButton @click="jumpToCameraPreset(0)" variant="ghost" size="xs">Overview</UButton>
-          <UButton @click="jumpToCameraPreset(1)" variant="ghost" size="xs">Close Up</UButton>
-          <UButton @click="jumpToCameraPreset(2)" variant="ghost" size="xs">Ground</UButton>
-          <UButton @click="jumpToCameraPreset(3)" variant="ghost" size="xs">Canopy</UButton>
+          <UButton @click="jumpToCameraPreset(0)" variant="ghost" size="xs" class="min-h-[44px]">Overview</UButton>
+          <UButton @click="jumpToCameraPreset(1)" variant="ghost" size="xs" class="min-h-[44px]">Close Up</UButton>
+          <UButton @click="jumpToCameraPreset(2)" variant="ghost" size="xs" class="min-h-[44px]">Ground</UButton>
+          <UButton @click="jumpToCameraPreset(3)" variant="ghost" size="xs" class="min-h-[44px]">Canopy</UButton>
         </div>
       </div>
     </div>
@@ -91,6 +100,7 @@ import {
 } from '@/utils/weatherSystem'
 
 const container = ref<HTMLDivElement | null>(null)
+const showControls = ref(false)
 const rainIntensity = ref(500)
 const fogDensity = ref(0.3)
 const showLeaves = ref(true)
@@ -518,29 +528,32 @@ onUnmounted(() => {
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
+  height: 8px;
   background: #374151;
-  border-radius: 3px;
+  border-radius: 4px;
   outline: none;
+  touch-action: none;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   background: #22c55e;
   border-radius: 50%;
   cursor: pointer;
+  touch-action: none;
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   background: #22c55e;
   border-radius: 50%;
   cursor: pointer;
   border: none;
+  touch-action: none;
 }
 </style>
 

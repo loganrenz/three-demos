@@ -13,24 +13,32 @@
       </div>
     </div>
 
-    <div class="relative h-[75vh] min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
+    <div class="relative h-[75vh] min-h-[400px] sm:min-h-[480px] rounded-2xl border border-white/10 bg-gradient-to-b from-slate-950 to-slate-900 overflow-hidden shadow-2xl">
       <div ref="container" class="h-full w-full"></div>
 
-      <div class="absolute top-3 left-3 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur">
+      <button
+        @click="showInfo = !showInfo"
+        class="absolute top-3 left-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-black/40 backdrop-blur transition hover:bg-black/60"
+        aria-label="Toggle info"
+      >
+        <span class="text-lg">{{ showInfo ? '×' : 'ℹ' }}</span>
+      </button>
+
+      <div v-show="showInfo" class="absolute top-3 left-3 z-10 bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
         <div class="text-[11px] uppercase tracking-[0.15em] text-gray-300">Next row</div>
-        <div class="w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
+        <div class="w-40 sm:w-48 h-2.5 bg-white/10 rounded-full overflow-hidden mt-2">
           <div class="h-full bg-emerald-400 transition-all duration-200" :style="{ width: `${timerPercent}%` }"></div>
         </div>
         <div class="text-[11px] text-gray-400 mt-2">Interval: {{ rowInterval.toFixed(1) }}s</div>
       </div>
 
-      <div class="absolute top-3 right-3 bg-black/40 border border-white/10 rounded-lg px-4 py-3 backdrop-blur text-right">
+      <div v-show="showInfo" class="absolute top-3 right-3 z-10 bg-black/40 border border-white/10 rounded-lg px-3 py-2 backdrop-blur text-right sm:px-4 sm:py-3">
         <div class="text-[11px] uppercase tracking-[0.15em] text-amber-300">Danger line</div>
-        <div class="text-xs text-gray-200">Keep the tower below the rim.</div>
+        <div class="text-xs text-gray-200 hidden sm:block">Keep the tower below the rim.</div>
       </div>
 
       <div
-        class="absolute inset-x-3 bottom-3 grid gap-2 rounded-xl border border-white/10 bg-black/55 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between"
+        class="absolute inset-x-3 bottom-3 z-10 grid gap-2 rounded-xl border border-white/10 bg-black/55 p-3 backdrop-blur sm:flex sm:items-center sm:justify-between"
       >
         <div class="flex items-center gap-2 text-sm text-emerald-200">
           <span class="text-xs uppercase tracking-[0.15em] text-slate-300">Word</span>
@@ -46,10 +54,10 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord">
+          <UButton color="emerald" size="sm" icon="i-heroicons-check" :disabled="!selectedTiles.length || isGameOver" @click="submitWord" class="min-h-[44px]">
             Submit
           </UButton>
-          <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection">
+          <UButton variant="ghost" size="sm" icon="i-heroicons-x-mark" :disabled="!selectedTiles.length" @click="clearSelection" class="min-h-[44px]">
             Clear
           </UButton>
         </div>
@@ -151,6 +159,7 @@ const pointer = markRaw(new THREE.Vector2())
 const clock = markRaw(new THREE.Clock())
 let animationId: number | null = null
 
+const showInfo = ref(false)
 const grid = ref<Array<Array<TileData | null>>>([])
 const selectedTiles = ref<TileData[]>([])
 const score = ref(0)

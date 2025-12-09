@@ -13,30 +13,40 @@
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <div class="relative rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl h-[68vh] min-h-[400px] overflow-hidden">
+      <div class="relative rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl h-[68vh] min-h-[360px] sm:min-h-[400px] overflow-hidden">
         <div ref="sceneContainer" class="absolute inset-0"></div>
-        <div class="absolute left-3 right-3 bottom-3 flex flex-wrap gap-2 text-[11px] text-slate-200">
+        <button
+          @click="showLegend = !showLegend"
+          class="absolute bottom-3 left-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-black/40 backdrop-blur transition hover:bg-black/60"
+          aria-label="Toggle legend"
+        >
+          <span class="text-lg">{{ showLegend ? '×' : 'ℹ' }}</span>
+        </button>
+        <div
+          v-show="showLegend"
+          class="absolute left-3 right-3 bottom-14 z-10 flex flex-wrap gap-2 rounded-lg border border-white/10 bg-black/60 px-3 py-2 backdrop-blur text-[11px] text-slate-200"
+        >
           <UBadge color="sky" variant="outline">Branch nodes</UBadge>
           <UBadge color="green" variant="outline">Leaf nodes</UBadge>
           <UBadge color="amber" variant="outline">Selected path</UBadge>
-          <span class="text-slate-300">Orbit, pinch, or tap spheres to move the breadcrumb.</span>
+          <span class="text-slate-300 hidden sm:inline">Orbit, pinch, or tap spheres to move the breadcrumb.</span>
         </div>
       </div>
 
       <div class="rounded-2xl border border-white/10 bg-slate-900/70 p-4 space-y-4 backdrop-blur">
         <div class="flex flex-wrap items-center gap-2 justify-between">
           <div class="flex flex-wrap items-center gap-2 text-sm">
-            <UButton color="amber" variant="soft" size="xs" label="Root" @click="selectTrail([])" :ui="{ padding: { sm: 'px-2 py-1' } }" />
+            <UButton color="amber" variant="soft" size="xs" label="Root" @click="selectTrail([])" class="min-h-[44px]" :ui="{ padding: { sm: 'px-3 py-2' } }" />
             <template v-for="(crumb, index) in selectedTrail" :key="crumb + index">
               <span class="text-slate-500">/</span>
-              <UButton variant="ghost" size="xs" :label="crumb" @click="jumpTo(index)" :ui="{ padding: { sm: 'px-2 py-1' } }" />
+              <UButton variant="ghost" size="xs" :label="crumb" @click="jumpTo(index)" class="min-h-[44px]" :ui="{ padding: { sm: 'px-3 py-2' } }" />
             </template>
           </div>
           <UInput
             v-model="search"
             placeholder="Search categories"
             icon="i-heroicons-magnifying-glass-20-solid"
-            class="w-full sm:w-auto min-w-[220px]"
+            class="w-full sm:w-auto"
           />
         </div>
 
@@ -50,7 +60,7 @@
             <button
               v-for="child in childNodes"
               :key="child.name"
-              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-left hover:border-amber-400/60 transition"
+              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2.5 text-left hover:border-amber-400/60 transition min-h-[44px]"
               @click="selectChild(child.name)"
             >
               <div class="flex items-start justify-between gap-2">
@@ -105,7 +115,7 @@
             <button
               v-for="result in filteredResults"
               :key="result.path.join('>')"
-              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-left hover:border-amber-400/60 transition"
+              class="w-full rounded-lg border border-white/5 bg-white/5 px-3 py-2.5 text-left hover:border-amber-400/60 transition min-h-[44px]"
               @click="selectTrail(result.path)"
             >
               <div class="flex items-center justify-between gap-3">
@@ -549,6 +559,7 @@ const taxonomy: TaxonomyNode[] = [
   }
 ]
 
+const showLegend = ref(false)
 const search = ref('')
 const selectedTrail = ref<string[]>([])
 

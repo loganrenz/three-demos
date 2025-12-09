@@ -14,7 +14,7 @@
 
     <div
       ref="container"
-      class="w-full h-[68vh] min-h-[360px] rounded-2xl border border-white/10 bg-slate-900/60 shadow-2xl overflow-hidden"
+      class="w-full h-[68vh] min-h-[320px] sm:min-h-[360px] rounded-2xl border border-white/10 bg-slate-900/60 shadow-2xl overflow-hidden"
     ></div>
   </div>
 </template>
