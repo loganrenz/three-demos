@@ -9,11 +9,64 @@ export class CameraController {
   private introDuration: number = 8
   private keyPositions: THREE.Vector3[] = []
   private keyTargets: THREE.Vector3[] = []
+  private isUndergroundView: boolean = false
+  private presetPositions: Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }> = []
 
   constructor(camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
     this.camera = camera
     this.setupIntroPath()
+    this.setupPresets()
     this.introStartTime = performance.now() / 1000
+  }
+  
+  private setupPresets(): void {
+    this.presetPositions = [
+      { position: new THREE.Vector3(0, 80, 80), target: new THREE.Vector3(0, 0, 0), name: 'Overview' },
+      { position: new THREE.Vector3(60, 30, 0), target: new THREE.Vector3(0, 0, 0), name: 'Side View' },
+      { position: new THREE.Vector3(0, 25, 60), target: new THREE.Vector3(0, 0, 0), name: 'Front View' },
+      { position: new THREE.Vector3(-50, 35, -30), target: new THREE.Vector3(0, 0, 0), name: 'Angled View' },
+      { position: new THREE.Vector3(0, -20, 0), target: new THREE.Vector3(0, -10, 0), name: 'Underground' }
+    ]
+  }
+  
+  public getPresets(): Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }> {
+    return this.presetPositions
+  }
+  
+  public jumpToPreset(index: number): void {
+    if (index >= 0 && index < this.presetPositions.length) {
+      const preset = this.presetPositions[index]
+      this.camera.position.copy(preset.position)
+      this.camera.lookAt(preset.target)
+      if (this.controls) {
+        this.controls.target.copy(preset.target)
+        this.controls.update()
+      }
+    }
+  }
+  
+  public toggleUndergroundView(): void {
+    this.isUndergroundView = !this.isUndergroundView
+    if (this.isUndergroundView) {
+      this.camera.position.set(0, -20, 0)
+      this.camera.lookAt(0, -10, 0)
+      if (this.controls) {
+        this.controls.target.set(0, -10, 0)
+        this.controls.minDistance = 5
+        this.controls.maxDistance = 50
+        this.controls.maxPolarAngle = Math.PI
+      }
+    } else {
+      if (this.controls) {
+        this.controls.minDistance = 20
+        this.controls.maxDistance = 150
+        this.controls.maxPolarAngle = Math.PI / 2.1
+      }
+    }
+  }
+  
+  public get undergroundView(): boolean {
+    return this.isUndergroundView
   }
 
   private setupIntroPath(): void {

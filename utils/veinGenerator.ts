@@ -4,7 +4,7 @@ import type { Building } from './cityGenerator'
 export interface Vein {
   curve: THREE.CatmullRomCurve3
   tube: THREE.Mesh
-  material: THREE.MeshStandardMaterial
+  material: THREE.MeshStandardMaterial | THREE.ShaderMaterial
   phase: number
   speed: number
   activeSegments: number[]
@@ -41,15 +41,52 @@ export function generateVeins(
 
     const curve = new THREE.CatmullRomCurve3(points)
     const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.8, 8, false)
+    
+    // Enhanced material with better glow
     const material = new THREE.MeshStandardMaterial({
       color: 0x00ffff,
       emissive: 0x00ffff,
       transparent: true,
       opacity: 0.7,
+      side: THREE.DoubleSide,
+      emissiveIntensity: 1.5
+    })
+    
+    // Add depth-based glow effect using custom shader material
+    const shaderMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        depth: { value: depth },
+        color: { value: new THREE.Color(0x00ffff) }
+      },
+      vertexShader: `
+        varying vec3 vPosition;
+        varying float vDepth;
+        void main() {
+          vPosition = position;
+          vDepth = position.y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform float depth;
+        uniform vec3 color;
+        varying vec3 vPosition;
+        varying float vDepth;
+        void main() {
+          float depthFactor = 1.0 - abs(vDepth - depth) / 5.0;
+          depthFactor = clamp(depthFactor, 0.3, 1.0);
+          vec3 finalColor = color * depthFactor;
+          float pulse = sin(time * 2.0 + vPosition.x * 0.1) * 0.1 + 0.9;
+          gl_FragColor = vec4(finalColor * pulse, 0.7 * depthFactor);
+        }
+      `,
+      transparent: true,
       side: THREE.DoubleSide
     })
 
-    const tube = new THREE.Mesh(tubeGeometry, material)
+    const tube = new THREE.Mesh(tubeGeometry, shaderMaterial)
     scene.add(tube)
 
     veins.push({
@@ -90,9 +127,13 @@ export function updateVeinFlow(
   }
 
   // Update material intensity based on max active intensity
-  const emissiveIntensity = 0.5 + maxIntensity * 1.5
-  vein.material.emissiveIntensity = emissiveIntensity
-  vein.material.opacity = 0.4 + maxIntensity * 0.4
+  if (vein.material instanceof THREE.ShaderMaterial) {
+    vein.material.uniforms.time.value = time
+  } else if (vein.material instanceof THREE.MeshStandardMaterial) {
+    const emissiveIntensity = 0.5 + maxIntensity * 1.5
+    vein.material.emissiveIntensity = emissiveIntensity
+    vein.material.opacity = 0.4 + maxIntensity * 0.4
+  }
 
   return activePoints
 }
