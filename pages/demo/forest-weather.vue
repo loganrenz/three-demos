@@ -1,164 +1,69 @@
 <template>
-  <div>
-    <div class="mb-4">
-      <UButton to="/" variant="ghost" icon="i-heroicons-arrow-left">Back</UButton>
+  <div class="mx-auto max-w-6xl space-y-4 text-white">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Forest lab</p>
+        <h2 class="text-2xl font-semibold">Procedural Forest with Dynamic Weather</h2>
+        <p class="text-sm text-slate-400">Weather, wind, and day/night controls sit on the canvas so the forest fills the screen.</p>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-200">
+        <span class="rounded-full bg-emerald-500/20 px-3 py-1 border border-emerald-500/40">Touch first</span>
+        <span class="rounded-full bg-white/5 px-3 py-1 border border-white/10">Minimal UI</span>
+      </div>
     </div>
-    <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
-      Procedural Forest with Dynamic Weather
-    </h2>
-    <div class="relative">
-      <div ref="container" class="w-full h-[600px] border border-gray-200 dark:border-gray-800 rounded-lg"></div>
-      
-      <!-- UI Controls -->
-      <div class="absolute top-4 right-4 bg-gray-900/90 dark:bg-gray-800/90 p-4 rounded-lg shadow-lg min-w-[250px] z-10 max-h-[90vh] overflow-y-auto">
-        <div class="space-y-4">
-          <!-- Weather Controls -->
-          <div class="border-b border-gray-700 pb-3">
-            <h3 class="text-sm font-semibold text-green-400 mb-2">Weather</h3>
-            <div class="space-y-2">
-              <div>
-                <label class="block text-xs text-gray-300 mb-1">
-                  Rain Intensity: {{ rainIntensity.toFixed(0) }}
-                </label>
-                <input
-                  v-model.number="rainIntensity"
-                  type="range"
-                  min="0"
-                  max="2000"
-                  step="100"
-                  class="w-full"
-                  @input="updateRainIntensity"
-                />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-300 mb-1">
-                  Fog Density: {{ fogDensity.toFixed(2) }}
-                </label>
-                <input
-                  v-model.number="fogDensity"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  class="w-full"
-                />
-              </div>
-              <div>
-                <label class="flex items-center text-sm text-gray-300">
-                  <input
-                    v-model="showLeaves"
-                    type="checkbox"
-                    class="mr-2"
-                  />
-                  Falling Leaves
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Wind Controls -->
-          <div class="border-b border-gray-700 pb-3">
-            <h3 class="text-sm font-semibold text-green-400 mb-2">Wind</h3>
-            <div class="space-y-2">
-              <div>
-                <label class="block text-xs text-gray-300 mb-1">
-                  Wind Speed: {{ windSpeed.toFixed(2) }}
-                </label>
-                <input
-                  v-model.number="windSpeed"
-                  type="range"
-                  min="0"
-                  max="3"
-                  step="0.1"
-                  class="w-full"
-                />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-300 mb-1">
-                  Wind Strength: {{ windStrength.toFixed(2) }}
-                </label>
-                <input
-                  v-model.number="windStrength"
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  class="w-full"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <!-- Time of Day -->
-          <div class="border-b border-gray-700 pb-3">
-            <h3 class="text-sm font-semibold text-green-400 mb-2">Time of Day</h3>
-            <div>
-              <label class="block text-xs text-gray-300 mb-1">
-                Time: {{ timeOfDay.toFixed(2) }}
-              </label>
-              <input
-                v-model.number="timeOfDay"
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                class="w-full"
-              />
-              <div class="flex justify-between text-xs text-gray-400 mt-1">
-                <span>Dawn</span>
-                <span>Noon</span>
-                <span>Dusk</span>
-                <span>Night</span>
-              </div>
-            </div>
-            <div class="mt-2">
-              <label class="flex items-center text-sm text-gray-300">
-                <input
-                  v-model="autoTime"
-                  type="checkbox"
-                  class="mr-2"
-                />
-                Auto Cycle
-              </label>
-            </div>
-          </div>
-          
-          <!-- Camera Presets -->
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">
-              Camera Presets
-            </label>
-            <div class="grid grid-cols-2 gap-2">
-              <UButton 
-                @click="jumpToCameraPreset(0)" 
-                variant="ghost" 
-                size="xs"
-              >
-                Overview
-              </UButton>
-              <UButton 
-                @click="jumpToCameraPreset(1)" 
-                variant="ghost" 
-                size="xs"
-              >
-                Close Up
-              </UButton>
-              <UButton 
-                @click="jumpToCameraPreset(2)" 
-                variant="ghost" 
-                size="xs"
-              >
-                Ground Level
-              </UButton>
-              <UButton 
-                @click="jumpToCameraPreset(3)" 
-                variant="ghost" 
-                size="xs"
-              >
-                Canopy View
-              </UButton>
-            </div>
-          </div>
+
+    <div class="relative rounded-2xl border border-white/10 bg-slate-950/60 shadow-2xl h-[72vh] min-h-[420px] overflow-hidden">
+      <div ref="container" class="absolute inset-0"></div>
+
+      <div
+        class="absolute inset-x-3 bottom-3 z-10 grid gap-3 rounded-xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur md:inset-auto md:top-4 md:right-4 md:w-72 md:p-4"
+      >
+        <div class="grid grid-cols-2 gap-3 text-xs text-slate-200">
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Rain <span>{{ rainIntensity.toFixed(0) }}</span></span>
+            <input
+              v-model.number="rainIntensity"
+              type="range"
+              min="0"
+              max="2000"
+              step="100"
+              @input="updateRainIntensity"
+            />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Fog <span>{{ fogDensity.toFixed(2) }}</span></span>
+            <input v-model.number="fogDensity" type="range" min="0" max="1" step="0.05" />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Wind <span>{{ windSpeed.toFixed(2) }}</span></span>
+            <input v-model.number="windSpeed" type="range" min="0" max="3" step="0.1" />
+          </label>
+          <label class="space-y-1">
+            <span class="flex items-center justify-between">Gust <span>{{ windStrength.toFixed(2) }}</span></span>
+            <input v-model.number="windStrength" type="range" min="0" max="2" step="0.1" />
+          </label>
+          <label class="space-y-1 col-span-2">
+            <span class="flex items-center justify-between">Time <span>{{ timeOfDay.toFixed(2) }}</span></span>
+            <input v-model.number="timeOfDay" type="range" min="0" max="1" step="0.01" />
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-200">
+          <label class="flex items-center gap-2">
+            <input v-model="autoTime" type="checkbox" class="accent-emerald-400" />
+            Auto cycle
+          </label>
+          <label class="flex items-center gap-2">
+            <input v-model="showLeaves" type="checkbox" class="accent-emerald-400" />
+            Leaves
+          </label>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs text-slate-200">
+          <UButton @click="jumpToCameraPreset(0)" variant="ghost" size="xs">Overview</UButton>
+          <UButton @click="jumpToCameraPreset(1)" variant="ghost" size="xs">Close Up</UButton>
+          <UButton @click="jumpToCameraPreset(2)" variant="ghost" size="xs">Ground</UButton>
+          <UButton @click="jumpToCameraPreset(3)" variant="ghost" size="xs">Canopy</UButton>
         </div>
       </div>
     </div>
@@ -168,6 +73,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
+
+definePageMeta({ layout: 'demo' })
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'

@@ -1,18 +1,29 @@
 <template>
-  <div>
-    <div class="mb-4">
-      <UButton to="/" variant="ghost" icon="i-heroicons-arrow-left">Back</UButton>
+  <div class="mx-auto max-w-5xl space-y-4 text-white">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Starter</p>
+        <h2 class="text-2xl font-semibold">Basic Scene</h2>
+        <p class="text-sm text-slate-400">Tap, rotate, and pinch — the cube fills the view on mobile.</p>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-slate-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
+        <span>Live render</span>
+      </div>
     </div>
-    <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
-      Basic Scene
-    </h2>
-    <div ref="container" class="w-full h-[600px] border border-gray-200 dark:border-gray-800 rounded-lg"></div>
+
+    <div
+      ref="container"
+      class="w-full h-[68vh] min-h-[360px] rounded-2xl border border-white/10 bg-slate-900/60 shadow-2xl overflow-hidden"
+    ></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
+
+definePageMeta({ layout: 'demo' })
 
 const container = ref<HTMLDivElement | null>(null)
 let scene: THREE.Scene | null = null
