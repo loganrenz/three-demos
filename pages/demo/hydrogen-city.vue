@@ -79,6 +79,7 @@
             <UButton 
               v-for="(preset, index) in cameraPresets" 
               :key="index"
+              v-if="preset && preset.name"
               @click="jumpToCameraPreset(index)" 
               variant="ghost" 
               size="xs"
@@ -150,6 +151,12 @@ const container = ref<HTMLDivElement | null>(null)
 const pulseSpeed = ref(1.0)
 const glowIntensity = ref(1.5)
 const showVeins = ref(true)
+const timeScale = ref(1.0)
+const isPaused = ref(false)
+const visualizationMode = ref('normal')
+const totalEnergy = ref(0)
+const activeBuildings = ref(0)
+const cameraPresets = ref<Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }>>([])
 
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
@@ -165,11 +172,7 @@ let groundGrid: THREE.LineSegments | null = null
 let energyRipples: THREE.Mesh[] = []
 let animationId: number | null = null
 let clock: THREE.Clock | null = null
-let timeScale = ref(1.0)
-let isPaused = ref(false)
-let visualizationMode = ref('normal')
-let totalEnergy = ref(0)
-let activeBuildings = ref(0)
+let handleResize: (() => void) | null = null
 
 onMounted(() => {
   if (!container.value) return
@@ -198,7 +201,9 @@ onMounted(() => {
   // Camera controller
   cameraController = new CameraController(camera, renderer)
   cameraController.setupControls(renderer)
-  cameraPresets.value = cameraController.getPresets()
+  if (cameraController) {
+    cameraPresets.value = cameraController.getPresets()
+  }
 
   // Lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.2)
@@ -226,9 +231,9 @@ onMounted(() => {
   scene.add(groundPlane)
   
   // Grid lines on ground
-  const gridHelper = new THREE.GridHelper(200, 20, 0x00ffff, 0x003333)
-  gridHelper.position.y = 0.01
-  scene.add(gridHelper)
+  groundGrid = new THREE.GridHelper(200, 20, 0x00ffff, 0x003333) as unknown as THREE.LineSegments
+  groundGrid.position.y = 0.01
+  scene.add(groundGrid)
   
   // Energy bleed-through spots (will be updated dynamically)
   const bleedGeometry = new THREE.PlaneGeometry(10, 10, 1, 1)
@@ -261,9 +266,14 @@ onMounted(() => {
   
   // Create particle systems for veins
   for (const vein of veins) {
-    const particles = createVeinParticles(vein, 50)
-    scene.add(particles.points)
-    veinParticles.push(particles)
+    if (!vein || !vein.curve) continue
+    try {
+      const particles = createVeinParticles(vein, 50)
+      scene.add(particles.points)
+      veinParticles.push(particles)
+    } catch (e) {
+      // Skip if particle creation fails
+    }
   }
 
   // Postprocessing
@@ -317,7 +327,7 @@ onMounted(() => {
   clock = new THREE.Clock()
 
   // Handle resize
-  const handleResize = () => {
+  handleResize = () => {
     if (!container.value || !camera || !renderer || !composer) return
     camera.aspect = container.value.clientWidth / container.value.clientHeight
     camera.updateProjectionMatrix()
@@ -347,6 +357,8 @@ onMounted(() => {
     // Update veins
     for (let i = 0; i < veins.length; i++) {
       const vein = veins[i]
+      if (!vein || !vein.tube || !vein.material) continue
+      
       updateVeinFlow(vein, time, pulseSpeed.value)
       vein.tube.visible = showVeins.value || visualizationMode.value === 'underground'
       
@@ -384,21 +396,25 @@ onMounted(() => {
       if (building.isEnergized && !wasEnergized) {
         building.lastEnergizedTime = time
         // Create energy ripple
-        if (scene) {
+        if (scene && building.position && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
           createEnergyRipple(building.position.x, building.position.z, time)
         }
         // Create building sparks
-        const sparks = createBuildingSparks(building.position, 15)
-        scene.add(sparks)
-        buildingSparks.push(sparks)
-        // Remove sparks after animation
-        setTimeout(() => {
-          scene.remove(sparks)
-          sparks.geometry.dispose()
-          ;(sparks.material as THREE.Material).dispose()
-          const index = buildingSparks.indexOf(sparks)
-          if (index > -1) buildingSparks.splice(index, 1)
-        }, 2000)
+        if (building.position && scene && typeof building.position.x === 'number' && typeof building.position.z === 'number') {
+          const sparks = createBuildingSparks(building.position, 15)
+          scene.add(sparks)
+          buildingSparks.push(sparks)
+          // Remove sparks after animation
+          setTimeout(() => {
+            if (scene) {
+              scene.remove(sparks)
+              sparks.geometry.dispose()
+              ;(sparks.material as THREE.Material).dispose()
+              const index = buildingSparks.indexOf(sparks)
+              if (index > -1) buildingSparks.splice(index, 1)
+            }
+          }, 2000)
+        }
       }
 
       updateBuildingEnergy(building, time, 2, buildings)
@@ -469,20 +485,28 @@ onMounted(() => {
   function updateEnergyBleedThrough(time: number): void {
     for (let i = 0; i < energyRipples.length; i++) {
       const ripple = energyRipples[i]
+      if (!ripple || !ripple.position || typeof ripple.position.x !== 'number' || typeof ripple.position.z !== 'number') continue
+      
       // Find nearest vein and check if it's active
       let nearestDistance = Infinity
       let nearestIntensity = 0
       
       for (const vein of veins) {
+        if (!vein?.curve) continue
         const points = vein.curve.getPoints(64)
-        for (const point of points) {
+        if (!points || points.length === 0) continue
+        
+        for (let idx = 0; idx < points.length; idx++) {
+          const point = points[idx]
+          if (!point || typeof point.x !== 'number' || typeof point.z !== 'number') continue
+          
           const distance = Math.sqrt(
             Math.pow(point.x - ripple.position.x, 2) + Math.pow(point.z - ripple.position.z, 2)
           )
           if (distance < nearestDistance) {
             nearestDistance = distance
             // Check if this point is active
-            const t = points.indexOf(point) / points.length
+            const t = idx / points.length
             const wavePosition = ((time * vein.speed * pulseSpeed.value + vein.phase) % 12) - 1
             const waveDistance = Math.abs(t * 10 - wavePosition)
             if (waveDistance < 1.5) {
@@ -498,9 +522,6 @@ onMounted(() => {
     }
   }
 
-  onUnmounted(() => {
-    window.removeEventListener('resize', handleResize)
-  })
 })
 
 watch(showVeins, (value) => {
@@ -516,21 +537,19 @@ watch(visualizationMode, (value) => {
   onViewModeChange()
 })
 
-const cameraPresets = ref<Array<{ position: THREE.Vector3; target: THREE.Vector3; name: string }>>([])
-
-const replayFlythrough = () => {
+function replayFlythrough() {
   if (cameraController) {
     cameraController.replayIntro()
   }
 }
 
-const jumpToCameraPreset = (index: number) => {
+function jumpToCameraPreset(index: number) {
   if (cameraController) {
     cameraController.jumpToPreset(index)
   }
 }
 
-const onViewModeChange = () => {
+function onViewModeChange() {
   if (cameraController && visualizationMode.value === 'underground') {
     if (!cameraController.undergroundView) {
       cameraController.toggleUndergroundView()
@@ -541,6 +560,9 @@ const onViewModeChange = () => {
 }
 
 onUnmounted(() => {
+  if (handleResize) {
+    window.removeEventListener('resize', handleResize)
+  }
   if (animationId) {
     cancelAnimationFrame(animationId)
   }

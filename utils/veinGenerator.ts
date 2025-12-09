@@ -27,7 +27,7 @@ export function generateVeins(
     const startZ = (Math.random() - 0.5) * citySize * 0.5
     points.push(new THREE.Vector3(startX, depth, startZ))
 
-    // Create branching path
+    // Create branching path (need at least 4 points for CatmullRomCurve3)
     const segments = 5 + Math.floor(Math.random() * 5)
     let currentX = startX
     let currentZ = startZ
@@ -39,7 +39,19 @@ export function generateVeins(
       points.push(new THREE.Vector3(currentX, yVariation, currentZ))
     }
 
+    // Ensure we have enough points for the curve
+    if (points.length < 4) {
+      // Add more points if needed
+      while (points.length < 4) {
+        currentX += (Math.random() - 0.5) * citySize * 0.8
+        currentZ += (Math.random() - 0.5) * citySize * 0.8
+        const yVariation = depth + (Math.random() - 0.5) * 2
+        points.push(new THREE.Vector3(currentX, yVariation, currentZ))
+      }
+    }
+
     const curve = new THREE.CatmullRomCurve3(points)
+    if (!curve || points.length < 4) continue
     const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.8, 8, false)
     
     // Enhanced shader material with animated flow and depth-based glow
@@ -90,7 +102,7 @@ export function generateVeins(
     veins.push({
       curve,
       tube,
-      material,
+      material: shaderMaterial,
       phase: Math.random() * Math.PI * 2,
       speed: 0.5 + Math.random() * 0.5,
       activeSegments: []
@@ -106,20 +118,27 @@ export function updateVeinFlow(
   pulseSpeed: number = 1
 ): THREE.Vector3[] {
   const activePoints: THREE.Vector3[] = []
+  if (!vein?.curve) return activePoints
+  
   const points = vein.curve.getPoints(64)
+  if (!points || points.length === 0) return activePoints
+  
   const waveLength = 10
   const waveSpeed = vein.speed * pulseSpeed
 
   // Calculate which segments are active based on wave position
   let maxIntensity = 0
   for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    if (!point) continue
+    
     const t = i / points.length
     const wavePosition = ((time * waveSpeed + vein.phase) % (waveLength + 2)) - 1
     const distance = Math.abs(t * waveLength - wavePosition)
 
     if (distance < 1.5) {
       const intensity = Math.max(0, 1 - distance / 1.5)
-      activePoints.push(points[i])
+      activePoints.push(point)
       maxIntensity = Math.max(maxIntensity, intensity)
     }
   }
@@ -175,13 +194,14 @@ export function checkBuildingEnergized(
   pulseSpeed: number
 ): boolean {
   if (!building || !building.position) return false
+  if (typeof building.position.x !== 'number' || typeof building.position.z !== 'number') return false
   
   const buildingX = building.position.x
   const buildingZ = building.position.z
   const threshold = 6
 
   for (const vein of veins) {
-    if (!vein) continue
+    if (!vein || !vein.curve) continue
     
     const activePoints = getActiveVeinPoints(vein, time, pulseSpeed)
 

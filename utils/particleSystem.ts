@@ -13,6 +13,10 @@ export function createVeinParticles(
   vein: { curve: THREE.CatmullRomCurve3 },
   count: number = 100
 ): ParticleSystem {
+  if (!vein?.curve) {
+    throw new Error('Vein curve is required')
+  }
+  
   const positions = new Float32Array(count * 3)
   const velocities = new Float32Array(count * 3)
   const lifetimes = new Float32Array(count)
@@ -21,6 +25,7 @@ export function createVeinParticles(
   for (let i = 0; i < count; i++) {
     const t = Math.random()
     const point = vein.curve.getPointAt(t)
+    if (!point) continue
     
     positions[i * 3] = point.x
     positions[i * 3 + 1] = point.y
@@ -68,6 +73,10 @@ export function createBuildingSparks(
   position: THREE.Vector3,
   count: number = 20
 ): THREE.Points {
+  if (!position || typeof position.x !== 'number') {
+    throw new Error('Valid position is required')
+  }
+  
   const positions = new Float32Array(count * 3)
   const velocities = new Float32Array(count * 3)
   const colors = new Float32Array(count * 3)
@@ -112,6 +121,8 @@ export function updateVeinParticles(
   time: number,
   speed: number = 1
 ): void {
+  if (!vein?.curve) return
+  
   const positions = system.positions
   const velocities = system.velocities
   const lifetimes = system.lifetimes
@@ -123,6 +134,7 @@ export function updateVeinParticles(
       // Reset particle
       const t = Math.random()
       const point = vein.curve.getPointAt(t)
+      if (!point) continue
       positions[i * 3] = point.x
       positions[i * 3 + 1] = point.y
       positions[i * 3 + 2] = point.z
@@ -131,7 +143,7 @@ export function updateVeinParticles(
       // Update position along curve
       const t = (lifetimes[i] / system.maxLifetime) % 1
       const point = vein.curve.getPointAt(t)
-      const nextPoint = vein.curve.getPointAt((t + 0.01) % 1)
+      if (!point) continue
       
       positions[i * 3] = point.x
       positions[i * 3 + 1] = point.y
