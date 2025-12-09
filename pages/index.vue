@@ -25,6 +25,11 @@ const demos = [
     title: 'Hydrogen City Pulse Map',
     description: 'A living 3D city powered by invisible hydrogen rivers',
     path: '/demo/hydrogen-city'
+  },
+  {
+    title: 'LexiStack Word Tower',
+    description: 'A rising grid word game that mixes Boggle with falling blocks',
+    path: '/demo/lexi-stack'
   }
 ]
 </script>
